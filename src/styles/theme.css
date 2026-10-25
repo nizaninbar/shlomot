@@ -1,0 +1,20 @@
+:root {
+  --cream: #fbf6ee;
+  --card: #fffdf8;
+  --turquoise: #6fb7b4;
+  --turquoise-deep: #3e8c89;
+  --turquoise-soft: #dcefed;
+  --pink: #ebb8b0;
+  --pink-soft: #f7e3df;
+  --gold: #c9a45c;
+  --gold-soft: rgba(201, 164, 92, 0.35);
+  --text: #4a3f3a;
+  --text-muted: #8a7d75;
+
+  --font: 'Assistant', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --radius: 16px;
+  --radius-pill: 999px;
+  --gutter: 16px;
+  --touch: 48px;
+  --shadow: 0 2px 10px rgba(74, 63, 58, 0.07);
+}
