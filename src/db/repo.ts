@@ -130,3 +130,71 @@ export async function deleteEquipment(id: string): Promise<void> {
     await db.equipment.delete(id)
   })
 }
+
+// ---------- Backup ----------
+
+export type BackupData = {
+  app: 'shlomot'
+  version: 1
+  exportedAt: number
+  equipment: Equipment[]
+  workouts: Workout[]
+  lessons: Lesson[]
+}
+
+export class InvalidBackupError extends Error {
+  constructor() {
+    super('invalid backup file')
+    this.name = 'InvalidBackupError'
+  }
+}
+
+export async function exportAll(): Promise<BackupData> {
+  const [equipment, workouts, lessons] = await Promise.all([
+    db.equipment.toArray(),
+    db.workouts.toArray(),
+    db.lessons.toArray(),
+  ])
+  return { app: 'shlomot', version: 1, exportedAt: Date.now(), equipment, workouts, lessons }
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
+const isStr = (v: unknown) => typeof v === 'string'
+const isNum = (v: unknown) => typeof v === 'number'
+
+/** Throws InvalidBackupError unless the parsed JSON has the exact backup shape. */
+export function parseBackup(raw: unknown): BackupData {
+  if (!isObj(raw) || raw.app !== 'shlomot' || raw.version !== 1) throw new InvalidBackupError()
+  const { equipment, workouts, lessons } = raw
+  if (!Array.isArray(equipment) || !Array.isArray(workouts) || !Array.isArray(lessons)) throw new InvalidBackupError()
+  const ok =
+    equipment.every((e) => isObj(e) && isStr(e.id) && isStr(e.name) && isNum(e.updatedAt)) &&
+    workouts.every(
+      (w) =>
+        isObj(w) &&
+        isStr(w.id) &&
+        isStr(w.name) &&
+        isStr(w.description) &&
+        Array.isArray(w.equipmentIds) &&
+        w.equipmentIds.every(isStr) &&
+        (w.basedOnId === undefined || isStr(w.basedOnId)) &&
+        isNum(w.createdAt) &&
+        isNum(w.updatedAt),
+    ) &&
+    lessons.every(
+      (l) =>
+        isObj(l) && isStr(l.id) && isStr(l.workoutId) && isStr(l.date) && isStr(l.time) && isStr(l.location) && isNum(l.updatedAt),
+    )
+  if (!ok) throw new InvalidBackupError()
+  return raw as BackupData
+}
+
+/** Replaces all data in one transaction. */
+export async function importAll(data: BackupData): Promise<void> {
+  await db.transaction('rw', db.equipment, db.workouts, db.lessons, async () => {
+    await Promise.all([db.equipment.clear(), db.workouts.clear(), db.lessons.clear()])
+    await db.equipment.bulkAdd(data.equipment)
+    await db.workouts.bulkAdd(data.workouts)
+    await db.lessons.bulkAdd(data.lessons)
+  })
+}

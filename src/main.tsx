@@ -6,6 +6,7 @@ import './styles/theme.css'
 import './styles/global.css'
 
 seedIfEmpty().catch(console.error)
+navigator.storage?.persist?.().catch(() => {})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import EmptyState from '../components/EmptyState'
 import EquipmentChips from '../components/EquipmentChips'
 import Mandala from '../components/Mandala'
+import { backupDue, getLastBackup } from '../lib/backupMeta'
 import { lastLessonDates, listEquipment, listWorkouts } from '../db/repo'
 import { filterWorkouts } from '../lib/filterWorkouts'
 import { formatDate } from '../lib/formatDate'
@@ -27,6 +28,12 @@ export default function Home() {
     <>
       <Mandala className="watermark" />
       <h1 className="page__title">{t.home.title}</h1>
+
+      {workouts && workouts.length > 0 && backupDue(getLastBackup(), Math.min(...workouts.map((w) => w.createdAt))) && (
+        <p className="notice" role="status">
+          {t.settings.reminder} <Link to="/settings">{t.settings.reminderAction}</Link>
+        </p>
+      )}
 
       {workouts && workouts.length > 0 && (
         <>

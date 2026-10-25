@@ -33,7 +33,8 @@ When a stage is done: tick it and add 2–3 lines of notes.
   - Detail shows "מבוסס על: X" link and "אימונים שמבוססים על זה".
   - Review: the full flow on the phone.
 
-- [ ] **Stage 4: PWA, offline, backup**
+- [x] **Stage 4: PWA, offline, backup**
+  Notes: `vite-plugin-pwa` (generateSW, Google Fonts runtime-cached); `/settings` page with export/import (`repo.exportAll/parseBackup/importAll`, 3 new tests); last-backup date in localStorage (`src/lib/backupMeta.ts`), reminder on Home after 14 days (counted from the oldest workout if never backed up). Still to verify on the phone: install, offline, export → clear → import.
   - `vite-plugin-pwa`: name שלומות, `dir: rtl`, `lang: he`, cream background, turquoise theme, icons from `public/icons/`, autoUpdate, scope/start_url `/shlomot/`.
   - `navigator.storage.persist()` on startup.
   - Settings page: export JSON (Web Share API, download fallback), import JSON (validate, confirm, replace all), last-backup date; gentle home reminder after 14 days with no backup.

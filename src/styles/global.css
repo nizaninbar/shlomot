@@ -388,3 +388,20 @@ input[type='search'] {
   font-weight: 600;
   color: var(--turquoise-deep);
 }
+
+/* Settings & reminder */
+.header__link--next {
+  margin-inline-start: 0;
+}
+
+.card--static {
+  align-items: flex-start;
+}
+
+.notice {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  background: var(--pink-soft);
+  border: 1px solid var(--gold-soft);
+  border-radius: var(--radius);
+}

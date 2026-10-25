@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from './db'
 import {
   cloneWorkout,
+  exportAll,
+  importAll,
+  InvalidBackupError,
+  parseBackup,
   deleteEquipment,
   deleteWorkout,
   DuplicateEquipmentError,
@@ -77,5 +81,35 @@ describe('lessons', () => {
     await saveLesson({ workoutId: w.id, date: '2026-02-01', time: '18:00', location: '' })
     expect((await listLessons(w.id)).map((l) => l.time)).toEqual(['18:00', '09:00', '10:00'])
     expect(await listLocations()).toEqual(['סטודיו'])
+  })
+})
+
+describe('backup', () => {
+  it('export -> import round-trips and replaces existing data', async () => {
+    const eq = await saveEquipment({ name: 'כדור' })
+    const w = await saveWorkout({ name: 'א', description: 'ד', equipmentIds: [eq.id] })
+    await saveLesson({ workoutId: w.id, date: '2026-01-01', time: '10:00', location: 'סטודיו' })
+    const backup = parseBackup(JSON.parse(JSON.stringify(await exportAll())))
+    await saveWorkout({ name: 'זמני', description: '', equipmentIds: [] })
+    await importAll(backup)
+    expect(await db.workouts.toArray()).toEqual([w])
+    expect(await db.lessons.count()).toBe(1)
+    expect(await db.equipment.count()).toBe(1)
+  })
+
+  it('rejects malformed files', () => {
+    expect(() => parseBackup({})).toThrow(InvalidBackupError)
+    expect(() => parseBackup({ app: 'shlomot', version: 1, equipment: [], workouts: [{ id: 1 }], lessons: [] })).toThrow(
+      InvalidBackupError,
+    )
+  })
+
+  it('reminder is due only after 14 days', async () => {
+    const { backupDue } = await import('../lib/backupMeta')
+    const day = 86_400_000
+    expect(backupDue(null, null, 100 * day)).toBe(false)
+    expect(backupDue(90 * day, 1, 100 * day)).toBe(false)
+    expect(backupDue(80 * day, 1, 100 * day)).toBe(true)
+    expect(backupDue(null, 80 * day, 100 * day)).toBe(true)
   })
 })

@@ -11,6 +11,9 @@ export default function Header() {
       <Link to="/equipment" className="header__link">
         {t.equipment.link}
       </Link>
+      <Link to="/settings" className="header__link header__link--next">
+        {t.settings.link}
+      </Link>
     </header>
   )
 }
