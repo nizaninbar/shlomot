@@ -1,18 +1,24 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import Mandala from '../components/Mandala'
-import { deleteWorkout, getWorkout, listEquipment } from '../db/repo'
+import { deleteLesson, deleteWorkout, getWorkout, listBasedOn, listEquipment, listLessons } from '../db/repo'
+import { formatDate } from '../lib/formatDate'
 import { t } from '../strings'
 
 export default function WorkoutDetail() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   // Wrapped so "not found" (undefined) is distinguishable from "still loading".
-  const result = useLiveQuery(async () => ({ workout: await getWorkout(id) }), [id])
+  const result = useLiveQuery(async () => {
+    const workout = await getWorkout(id)
+    return { workout, source: workout?.basedOnId ? await getWorkout(workout.basedOnId) : undefined }
+  }, [id])
+  const lessons = useLiveQuery(() => listLessons(id), [id])
+  const derived = useLiveQuery(() => listBasedOn(id), [id])
   const equipment = useLiveQuery(listEquipment, [])
 
   if (!result) return null
-  const { workout } = result
+  const { workout, source } = result
   if (!workout) {
     return (
       <>
@@ -49,7 +55,65 @@ export default function WorkoutDetail() {
           ))}
         </div>
       )}
+      {workout.basedOnId && (
+        <p className="muted detail__based">
+          {source ? (
+            <>
+              {t.clone.basedOn} <Link to={`/workout/${source.id}`}>{source.name}</Link>
+            </>
+          ) : (
+            t.clone.basedOnDeleted
+          )}
+        </p>
+      )}
       {workout.description && <p className="detail__desc">{workout.description}</p>}
+      <div className="actions">
+        <Link to={`/workout/${workout.id}/clone`} className="btn btn--link">
+          {t.clone.action}
+        </Link>
+      </div>
+
+      <h2 className="section__title">{t.lesson.title}</h2>
+      {lessons && lessons.length === 0 && <p className="muted">{t.lesson.empty}</p>}
+      <ul className="list">
+        {lessons?.map((l) => (
+          <li key={l.id} className="list__item">
+            <span className="list__name">
+              {formatDate(l.date)} · {l.time}
+              {l.location && <span className="muted"> · {l.location}</span>}
+            </span>
+            <Link to={`/lesson/${l.id}/edit`} className="btn btn--link">
+              {t.edit}
+            </Link>
+            <button
+              className="btn btn--danger"
+              type="button"
+              onClick={() => window.confirm(t.lesson.confirmDelete(formatDate(l.date))) && deleteLesson(l.id)}
+            >
+              {t.delete}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <Link to={`/workout/${workout.id}/lesson/new`} className="btn btn--link">
+        + {t.lesson.add}
+      </Link>
+
+      {derived && derived.length > 0 && (
+        <>
+          <h2 className="section__title">{t.clone.basedOnThis}</h2>
+          <ul className="list">
+            {derived.map((d) => (
+              <li key={d.id}>
+                <Link to={`/workout/${d.id}`} className="card">
+                  <span className="card__name">{d.name}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
       <div className="actions">
         <Link to={`/workout/${workout.id}/edit`} className="btn btn--primary btn--link">
           {t.edit}

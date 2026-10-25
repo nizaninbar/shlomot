@@ -375,3 +375,16 @@ input[type='search'] {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.detail__based {
+  position: relative;
+  margin-top: 8px;
+}
+
+.section__title {
+  position: relative;
+  margin: 24px 0 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--turquoise-deep);
+}

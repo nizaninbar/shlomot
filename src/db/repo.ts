@@ -42,6 +42,11 @@ export async function deleteWorkout(id: string): Promise<void> {
   })
 }
 
+/** Workouts cloned from the given one, newest first. */
+export async function listBasedOn(workoutId: string): Promise<Workout[]> {
+  return db.workouts.where('basedOnId').equals(workoutId).reverse().sortBy('createdAt')
+}
+
 /** Returns an unsaved draft (no id); the caller saves it via saveWorkout on submit. */
 export async function cloneWorkout(sourceId: string): Promise<WorkoutDraft> {
   const source = await db.workouts.get(sourceId)
@@ -59,6 +64,10 @@ export async function cloneWorkout(sourceId: string): Promise<WorkoutDraft> {
 export async function listLessons(workoutId: string): Promise<Lesson[]> {
   const lessons = await db.lessons.where('workoutId').equals(workoutId).toArray()
   return lessons.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))
+}
+
+export async function getLesson(id: string): Promise<Lesson | undefined> {
+  return db.lessons.get(id)
 }
 
 export async function saveLesson(input: Omit<Lesson, 'id' | 'updatedAt'> & { id?: string }): Promise<Lesson> {

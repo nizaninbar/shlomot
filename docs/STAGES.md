@@ -25,7 +25,8 @@ When a stage is done: tick it and add 2–3 lines of notes.
   - WorkoutDetail: description keeps line breaks, equipment, edit, delete.
   - Review: create, edit, search and filter.
 
-- [ ] **Stage 3: Lessons + "based on" flow**
+- [x] **Stage 3: Lessons + "based on" flow**
+  Notes: routes `/workout/:id/clone`, `/workout/:id/lesson/new`, `/lesson/:lessonId/edit`. Clone reuses `WorkoutForm` (`clone` prop) and asks `window.confirm` to add a lesson after saving. Added `repo.listBasedOn` and `getLesson`. Still to verify on the phone: full flow, date/time inputs in RTL.
   - Detail: lessons list (newest first), "הוסף שיעור".
   - LessonForm: date (default today), time, location (datalist of past locations); edit/delete.
   - Clone flow (see CLAUDE.md Rules), then "להוסיף שיעור עכשיו?".

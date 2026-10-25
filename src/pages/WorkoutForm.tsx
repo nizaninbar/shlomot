@@ -3,28 +3,32 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import EquipmentChips from '../components/EquipmentChips'
 import Mandala from '../components/Mandala'
-import { getWorkout, listEquipment, saveWorkout } from '../db/repo'
+import { cloneWorkout, getWorkout, listEquipment, saveWorkout } from '../db/repo'
 import type { Workout } from '../db/types'
+import type { WorkoutDraft } from '../db/repo'
 import { t } from '../strings'
 
-export default function WorkoutForm() {
+export default function WorkoutForm({ clone = false }: { clone?: boolean }) {
   const { id } = useParams()
   // Load once: a live query would overwrite what is being typed.
-  const [loaded, setLoaded] = useState<{ id?: string; workout?: Workout } | null>(id ? null : { })
+  const [loaded, setLoaded] = useState<{ id?: string; workout?: Workout; draft?: WorkoutDraft } | null>(id ? null : {})
 
   useEffect(() => {
     if (!id) return
     let cancelled = false
-    getWorkout(id).then((workout) => {
-      if (!cancelled) setLoaded({ id, workout })
+    const load = clone
+      ? cloneWorkout(id).then((draft) => ({ id, draft }), () => ({ id }))
+      : getWorkout(id).then((workout) => ({ id, workout }))
+    load.then((result) => {
+      if (!cancelled) setLoaded(result)
     })
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, clone])
 
   if (!loaded || loaded.id !== id) return null
-  if (id && !loaded.workout) {
+  if (id && !loaded.workout && !loaded.draft) {
     return (
       <>
         <Mandala className="watermark" />
@@ -33,15 +37,16 @@ export default function WorkoutForm() {
       </>
     )
   }
-  return <Fields key={id ?? 'new'} workout={loaded.workout} />
+  return <Fields key={`${clone ? 'clone' : 'edit'}-${id ?? 'new'}`} workout={loaded.workout} draft={loaded.draft} />
 }
 
-function Fields({ workout }: { workout?: Workout }) {
+function Fields({ workout, draft }: { workout?: Workout; draft?: WorkoutDraft }) {
   const navigate = useNavigate()
   const equipment = useLiveQuery(listEquipment, [])
-  const [name, setName] = useState(workout?.name ?? '')
-  const [description, setDescription] = useState(workout?.description ?? '')
-  const [equipmentIds, setEquipmentIds] = useState<string[]>(workout?.equipmentIds ?? [])
+  const initial = workout ?? draft
+  const [name, setName] = useState(initial?.name ?? '')
+  const [description, setDescription] = useState(initial?.description ?? '')
+  const [equipmentIds, setEquipmentIds] = useState<string[]>(initial?.equipmentIds ?? [])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -62,9 +67,13 @@ function Fields({ workout }: { workout?: Workout }) {
         name: name.trim(),
         description: description.trim(),
         equipmentIds,
-        basedOnId: workout?.basedOnId,
+        basedOnId: initial?.basedOnId,
       })
-      navigate(`/workout/${saved.id}`, { replace: true })
+      if (draft && window.confirm(t.clone.addLessonNow)) {
+        navigate(`/workout/${saved.id}/lesson/new`, { replace: true })
+      } else {
+        navigate(`/workout/${saved.id}`, { replace: true })
+      }
     } catch {
       setError(t.workout.saveFailed)
       setSaving(false)
@@ -74,11 +83,11 @@ function Fields({ workout }: { workout?: Workout }) {
   return (
     <>
       <Mandala className="watermark" />
-      <h1 className="page__title">{workout ? t.workout.editTitle : t.workout.newTitle}</h1>
+      <h1 className="page__title">{workout ? t.workout.editTitle : draft ? t.clone.title : t.workout.newTitle}</h1>
       <form className="form" onSubmit={onSubmit}>
         <label className="field">
           <span className="field__label">{t.workout.name}</span>
-          <input className="input input--block" value={name} onChange={(e) => setName(e.target.value)} autoFocus={!workout} />
+          <input className="input input--block" value={name} onChange={(e) => setName(e.target.value)} autoFocus={!workout && !draft} />
         </label>
         <label className="field">
           <span className="field__label">{t.workout.description}</span>
