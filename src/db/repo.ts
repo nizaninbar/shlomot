@@ -77,6 +77,15 @@ export async function listLocations(): Promise<string[]> {
   return (locations as string[]).filter((l) => l.trim() !== '')
 }
 
+/** Latest lesson date (YYYY-MM-DD) per workout id. */
+export async function lastLessonDates(): Promise<Record<string, string>> {
+  const result: Record<string, string> = {}
+  await db.lessons.each((l) => {
+    if (!result[l.workoutId] || l.date > result[l.workoutId]) result[l.workoutId] = l.date
+  })
+  return result
+}
+
 // ---------- Equipment ----------
 
 export async function listEquipment(): Promise<Equipment[]> {

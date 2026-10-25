@@ -17,7 +17,8 @@ When a stage is done: tick it and add 2–3 lines of notes.
   - Vitest: unique name, equipment delete cascade, workout delete cascade, clone.
   - Review: manage equipment on the phone; survives reload.
 
-- [ ] **Stage 2: Workouts (home, search, filter, form, detail)**
+- [x] **Stage 2: Workouts (home, search, filter, form, detail)**
+  Notes: routes `/workout/new`, `/workout/:id`, `/workout/:id/edit`. `filterWorkouts` in `src/lib/` (5 tests); `repo.lastLessonDates()` feeds the last-taught line. Delete uses `window.confirm`. Still to verify on the phone: create/edit/search/filter, chip row scroll at 360px.
   - Home: search box, horizontal equipment chips (AND), workout cards (name, a short line of description, equipment tags, last-taught date), FAB "אימון חדש", empty states.
   - Pure `filterWorkouts(workouts, query, selectedIds)` + unit tests.
   - WorkoutForm (create/edit): name required, description textarea, equipment multi-select chips.

@@ -2,6 +2,8 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Header from './components/Header'
 import Equipment from './pages/Equipment'
 import Home from './pages/Home'
+import WorkoutDetail from './pages/WorkoutDetail'
+import WorkoutForm from './pages/WorkoutForm'
 
 export default function App() {
   return (
@@ -10,6 +12,9 @@ export default function App() {
       <main className="page">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/workout/new" element={<WorkoutForm />} />
+          <Route path="/workout/:id" element={<WorkoutDetail />} />
+          <Route path="/workout/:id/edit" element={<WorkoutForm />} />
           <Route path="/equipment" element={<Equipment />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
