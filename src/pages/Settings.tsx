@@ -24,25 +24,31 @@ export default function Settings() {
       const data = await exportAll()
       const fileName = `shlomot-backup-${isoDay(data.exportedAt)}.json`
       const file = new File([JSON.stringify(data, null, 2)], fileName, { type: 'application/json' })
+      let shared = false
       if (navigator.canShare?.({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: fileName })
+          shared = true
         } catch (e) {
           if (e instanceof DOMException && e.name === 'AbortError') return
-          throw e
+          // share unavailable or blocked: fall back to a download
         }
-      } else {
+      }
+      if (!shared) {
         const url = URL.createObjectURL(file)
         const a = document.createElement('a')
         a.href = url
         a.download = fileName
+        document.body.appendChild(a)
         a.click()
+        a.remove()
         setTimeout(() => URL.revokeObjectURL(url), 10_000)
       }
       setLastBackup()
       setLast(getLastBackup())
       setMessage(t.settings.exported)
-    } catch {
+    } catch (e) {
+      console.error(e)
       setError(t.settings.exportFailed)
     }
   }
