@@ -249,7 +249,7 @@ export async function listChangedSince(since: number): Promise<SyncBatch> {
 /**
  * Applies rows pulled from the remote, last-write-wins on updatedAt. Writes bypass the
  * normal repo paths so nothing is re-stamped. A pulled equipment name that clashes with a
- * different local item is renamed (and re-stamped so the rename syncs back).
+ * different local item is merged: the local twin is deleted and its workouts re-pointed.
  */
 export async function applyRemote(batch: SyncBatch): Promise<void> {
   await db.transaction('rw', db.equipment, db.workouts, db.lessons, db.tombstones, async () => {
@@ -268,11 +268,20 @@ export async function applyRemote(batch: SyncBatch): Promise<void> {
     }
     for (const e of batch.equipment) {
       if (await stale('equipment', e.id, e.updatedAt)) continue
-      let item = e
       const lower = e.name.toLowerCase()
-      const clash = (await db.equipment.toArray()).some((o) => o.id !== e.id && o.name.toLowerCase() === lower)
-      if (clash) item = { ...e, name: `${e.name} (2)`, updatedAt: Date.now() }
-      await db.equipment.put(item)
+      const twin = (await db.equipment.toArray()).find((o) => o.id !== e.id && o.name.toLowerCase() === lower)
+      if (twin) {
+        // Same item created independently (e.g. seeded defaults on a new device): merge into the remote id.
+        const now = Date.now()
+        const users = await db.workouts.where('equipmentIds').equals(twin.id).toArray()
+        for (const w of users) {
+          const ids = [...new Set(w.equipmentIds.map((id) => (id === twin.id ? e.id : id)))]
+          await db.workouts.put({ ...w, equipmentIds: ids, updatedAt: now })
+        }
+        await db.equipment.delete(twin.id)
+        await db.tombstones.put(tomb('equipment', twin.id, now))
+      }
+      await db.equipment.put(e)
       await db.tombstones.delete(`equipment:${e.id}`)
     }
     for (const w of batch.workouts) {

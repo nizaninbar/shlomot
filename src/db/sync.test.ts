@@ -96,11 +96,14 @@ describe('sync', () => {
     expect((await db.workouts.get(w.id))!.name).toBe('newer')
   })
 
-  it('renames a pulled equipment whose name clashes with a different local item', async () => {
+  it('merges a pulled equipment whose name clashes with a different local item', async () => {
     store.set('equipment', new Map([['remote-id', { updatedAt: 5, row: { id: 'remote-id', name: 'כדור', updatedAt: 5 } }]]))
-    await saveEquipment({ name: 'כדור' })
+    const local = await saveEquipment({ name: 'כדור' })
+    const w = await saveWorkout({ name: 'w', description: '', equipmentIds: [local.id] })
     await syncNow(fakeRemote())
-    expect((await db.equipment.get('remote-id'))!.name).toBe('כדור (2)')
+    expect(await db.equipment.count()).toBe(1)
+    expect((await db.equipment.get('remote-id'))!.name).toBe('כדור')
+    expect((await db.workouts.get(w.id))!.equipmentIds).toEqual(['remote-id'])
   })
 
   it('equipment delete (which edits workouts) syncs consistently', async () => {
