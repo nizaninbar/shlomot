@@ -40,7 +40,7 @@ When a stage is done: tick it and add 2–3 lines of notes.
   - Settings page: export JSON (Web Share API, download fallback), import JSON (validate, confirm, replace all), last-backup date; gentle home reminder after 14 days with no backup.
   - Review: install to home screen, use offline, export → clear → import.
 
-- [ ] **Stage 5 (optional): Supabase sync**
-  - Free Supabase project, tables mirroring types + `deletedAt`, RLS by `auth.uid()`, magic-link login in Settings.
-  - `src/db/sync.ts`: push local changes, pull `updatedAt > lastPull`, last-write-wins. App stays fully usable offline.
-  - Free projects pause after ~7 idle days.
+- [x] **Stage 5 (optional): Turso sync**
+  Notes: setup in `docs/TURSO.md`. Switched from Supabase (free tier full, pauses after 7 idle days). The user pastes the Turso URL + token into the Settings sync card; they live in localStorage only (no secrets in the bundle or repo). `src/db/turso.ts` creates the tables itself and implements `Remote` over `@libsql/client/web`. Dexie v2 adds a local `tombstones` table written by every delete; `sync.ts` pulls then pushes (tested with a fake remote, 5 tests); `autosync.ts` syncs on start, online, app-visible and 4s after edits. Still to do by hand: create the Turso DB + token, test on two devices.
+  - Tables mirror types + `deleted_at` tombstones; upserts are last-write-wins by `updated_at`.
+  - `src/db/sync.ts`: push local changes, pull `updatedAt > lastPull`. App stays fully usable offline.

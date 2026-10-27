@@ -1,5 +1,5 @@
 import { db } from './db'
-import type { Equipment, Lesson, Workout } from './types'
+import type { Equipment, Lesson, SyncTable, Tombstone, Workout } from './types'
 
 export class DuplicateEquipmentError extends Error {
   constructor() {
@@ -9,6 +9,13 @@ export class DuplicateEquipmentError extends Error {
 }
 
 const newId = () => crypto.randomUUID()
+
+const tomb = (table: SyncTable, id: string, deletedAt: number): Tombstone => ({
+  key: `${table}:${id}`,
+  table,
+  id,
+  deletedAt,
+})
 
 // ---------- Workouts ----------
 
@@ -36,9 +43,12 @@ export async function saveWorkout(input: WorkoutDraft & { id?: string }): Promis
 }
 
 export async function deleteWorkout(id: string): Promise<void> {
-  await db.transaction('rw', db.workouts, db.lessons, async () => {
-    await db.lessons.where('workoutId').equals(id).delete()
+  await db.transaction('rw', db.workouts, db.lessons, db.tombstones, async () => {
+    const now = Date.now()
+    const lessonIds = await db.lessons.where('workoutId').equals(id).primaryKeys()
+    await db.lessons.bulkDelete(lessonIds)
     await db.workouts.delete(id)
+    await db.tombstones.bulkPut([...lessonIds.map((l) => tomb('lessons', l, now)), tomb('workouts', id, now)])
   })
 }
 
@@ -77,7 +87,10 @@ export async function saveLesson(input: Omit<Lesson, 'id' | 'updatedAt'> & { id?
 }
 
 export async function deleteLesson(id: string): Promise<void> {
-  await db.lessons.delete(id)
+  await db.transaction('rw', db.lessons, db.tombstones, async () => {
+    await db.lessons.delete(id)
+    await db.tombstones.put(tomb('lessons', id, Date.now()))
+  })
 }
 
 /** Distinct, non-empty past locations. */
@@ -118,7 +131,7 @@ export async function saveEquipment(input: { id?: string; name: string }): Promi
 
 /** Removes the equipment and its id from every workout, atomically. */
 export async function deleteEquipment(id: string): Promise<void> {
-  await db.transaction('rw', db.equipment, db.workouts, async () => {
+  await db.transaction('rw', db.equipment, db.workouts, db.tombstones, async () => {
     const now = Date.now()
     await db.workouts
       .where('equipmentIds')
@@ -128,6 +141,7 @@ export async function deleteEquipment(id: string): Promise<void> {
         w.updatedAt = now
       })
     await db.equipment.delete(id)
+    await db.tombstones.put(tomb('equipment', id, now))
   })
 }
 
@@ -189,12 +203,87 @@ export function parseBackup(raw: unknown): BackupData {
   return raw as BackupData
 }
 
-/** Replaces all data in one transaction. */
+/** Replaces all data in one transaction. Rows that disappear are recorded as deletions for sync. */
 export async function importAll(data: BackupData): Promise<void> {
-  await db.transaction('rw', db.equipment, db.workouts, db.lessons, async () => {
-    await Promise.all([db.equipment.clear(), db.workouts.clear(), db.lessons.clear()])
+  await db.transaction('rw', db.equipment, db.workouts, db.lessons, db.tombstones, async () => {
+    const now = Date.now()
+    const kept: Record<SyncTable, Set<string>> = {
+      equipment: new Set(data.equipment.map((r) => r.id)),
+      workouts: new Set(data.workouts.map((r) => r.id)),
+      lessons: new Set(data.lessons.map((r) => r.id)),
+    }
+    const gone: Tombstone[] = []
+    for (const table of ['equipment', 'workouts', 'lessons'] as const) {
+      for (const id of await db[table].toCollection().primaryKeys()) {
+        if (!kept[table].has(id)) gone.push(tomb(table, id, now))
+      }
+    }
+    await Promise.all([db.equipment.clear(), db.workouts.clear(), db.lessons.clear(), db.tombstones.clear()])
     await db.equipment.bulkAdd(data.equipment)
     await db.workouts.bulkAdd(data.workouts)
     await db.lessons.bulkAdd(data.lessons)
+    await db.tombstones.bulkAdd(gone)
+  })
+}
+
+// ---------- Sync support ----------
+
+export type SyncBatch = {
+  equipment: Equipment[]
+  workouts: Workout[]
+  lessons: Lesson[]
+  tombstones: Tombstone[]
+}
+
+/** Everything written or deleted locally at or after `since`. */
+export async function listChangedSince(since: number): Promise<SyncBatch> {
+  const [equipment, workouts, lessons, tombstones] = await Promise.all([
+    db.equipment.filter((r) => r.updatedAt >= since).toArray(),
+    db.workouts.filter((r) => r.updatedAt >= since).toArray(),
+    db.lessons.filter((r) => r.updatedAt >= since).toArray(),
+    db.tombstones.where('deletedAt').aboveOrEqual(since).toArray(),
+  ])
+  return { equipment, workouts, lessons, tombstones }
+}
+
+/**
+ * Applies rows pulled from the remote, last-write-wins on updatedAt. Writes bypass the
+ * normal repo paths so nothing is re-stamped. A pulled equipment name that clashes with a
+ * different local item is renamed (and re-stamped so the rename syncs back).
+ */
+export async function applyRemote(batch: SyncBatch): Promise<void> {
+  await db.transaction('rw', db.equipment, db.workouts, db.lessons, db.tombstones, async () => {
+    for (const t of batch.tombstones) {
+      const local = await db[t.table].get(t.id)
+      if (local && local.updatedAt > t.deletedAt) continue // edited after the delete elsewhere: keep
+      if (t.table === 'workouts') await db.lessons.where('workoutId').equals(t.id).delete()
+      await db[t.table].delete(t.id)
+      await db.tombstones.put(t)
+    }
+    const stale = async (table: SyncTable, id: string, updatedAt: number) => {
+      const local = await db[table].get(id)
+      if (local && local.updatedAt >= updatedAt) return true
+      const dead = await db.tombstones.get(`${table}:${id}`)
+      return !!dead && dead.deletedAt >= updatedAt
+    }
+    for (const e of batch.equipment) {
+      if (await stale('equipment', e.id, e.updatedAt)) continue
+      let item = e
+      const lower = e.name.toLowerCase()
+      const clash = (await db.equipment.toArray()).some((o) => o.id !== e.id && o.name.toLowerCase() === lower)
+      if (clash) item = { ...e, name: `${e.name} (2)`, updatedAt: Date.now() }
+      await db.equipment.put(item)
+      await db.tombstones.delete(`equipment:${e.id}`)
+    }
+    for (const w of batch.workouts) {
+      if (await stale('workouts', w.id, w.updatedAt)) continue
+      await db.workouts.put(w)
+      await db.tombstones.delete(`workouts:${w.id}`)
+    }
+    for (const l of batch.lessons) {
+      if (await stale('lessons', l.id, l.updatedAt)) continue
+      await db.lessons.put(l)
+      await db.tombstones.delete(`lessons:${l.id}`)
+    }
   })
 }

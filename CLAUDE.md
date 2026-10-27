@@ -6,7 +6,7 @@ Build progress and next stage: see `docs/STAGES.md`. Do one stage per session, t
 ## Stack
 - Vite + React + TypeScript. `index.html` is `lang="he" dir="rtl"`.
 - HashRouter (GitHub Pages). Vite `base: '/shlomot/'`. Use `import.meta.env.BASE_URL` for public asset paths.
-- Storage: Dexie (IndexedDB) + `dexie-react-hooks` (`useLiveQuery`). Supabase sync is a later optional stage.
+- Storage: Dexie (IndexedDB) + `dexie-react-hooks` (`useLiveQuery`). Optional cloud sync goes to Turso (libSQL) over HTTP; URL + token are pasted in Settings (localStorage), see `docs/TURSO.md`.
 - All DB access goes through `src/db/repo.ts` (UI never touches Dexie tables directly).
 - Deploy: `.github/workflows/deploy.yml` on push to `main`.
 - Plain CSS with custom properties, no UI library. Use logical properties (`margin-inline-start`, `padding-inline`).

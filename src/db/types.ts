@@ -18,3 +18,7 @@ export type Lesson = {
   location: string
   updatedAt: number
 }
+
+/** Local record of a deletion, so sync can propagate it. key = `${table}:${id}`. */
+export type SyncTable = 'equipment' | 'workouts' | 'lessons'
+export type Tombstone = { key: string; table: SyncTable; id: string; deletedAt: number }

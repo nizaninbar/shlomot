@@ -1,5 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import Mandala from '../components/Mandala'
+import SyncSection from '../components/SyncSection'
 import { exportAll, importAll, InvalidBackupError, parseBackup } from '../db/repo'
 import { getLastBackup, setLastBackup } from '../lib/backupMeta'
 import { formatDate } from '../lib/formatDate'
@@ -74,6 +75,8 @@ export default function Settings() {
     <>
       <Mandala className="watermark" />
       <h1 className="page__title">{t.settings.title}</h1>
+
+      <SyncSection />
 
       <section className="card card--static">
         <h2 className="card__name">{t.settings.backupTitle}</h2>
