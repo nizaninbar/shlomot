@@ -41,6 +41,6 @@ When a stage is done: tick it and add 2–3 lines of notes.
   - Review: install to home screen, use offline, export → clear → import.
 
 - [x] **Stage 5 (optional): Turso sync**
-  Notes: setup in `docs/TURSO.md`. Switched from Supabase (free tier full, pauses after 7 idle days). The user pastes the Turso URL + token into the Settings sync card; they live in localStorage only (no secrets in the bundle or repo). `src/db/turso.ts` creates the tables itself and implements `Remote` over `@libsql/client/web`. Dexie v2 adds a local `tombstones` table written by every delete; `sync.ts` pulls then pushes (tested with a fake remote, 5 tests); `autosync.ts` syncs on start, online, app-visible and 4s after edits. Still to do by hand: create the Turso DB + token, test on two devices.
+  Notes: setup in `docs/TURSO.md`. Switched from Supabase (free tier full, pauses after 7 idle days). The user pastes the Turso URL + token into the Settings sync card; they live in localStorage only (no secrets in the bundle or repo). `src/db/turso.ts` creates the tables itself and implements `Remote` over `@libsql/client/web`. Dexie v2 adds a local `tombstones` table written by every delete; `sync.ts` pulls then pushes (tested with a fake remote, 5 tests); `autosync.ts` syncs on start, online, app-visible and 4s after edits. Verified working end to end with a real Turso DB.
   - Tables mirror types + `deleted_at` tombstones; upserts are last-write-wins by `updated_at`.
   - `src/db/sync.ts`: push local changes, pull `updatedAt > lastPull`. App stays fully usable offline.
