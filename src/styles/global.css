@@ -247,6 +247,16 @@ input[type='search'] {
   flex-wrap: wrap;
 }
 
+/* Mouse users can't swipe and the scrollbar is hidden: wrap instead. */
+@media (hover: hover) and (pointer: fine) {
+  .chips--scroll {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+}
+
 .chip {
   flex: none;
   min-height: var(--touch);
