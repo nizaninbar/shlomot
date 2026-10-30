@@ -6,7 +6,7 @@ Build progress and next stage: see `docs/STAGES.md`. Do one stage per session, t
 ## Stack
 - Vite + React + TypeScript. `index.html` is `lang="he" dir="rtl"`.
 - HashRouter (GitHub Pages). Vite `base: '/shlomot/'`. Use `import.meta.env.BASE_URL` for public asset paths.
-- Storage: Dexie (IndexedDB) + `dexie-react-hooks` (`useLiveQuery`). Optional cloud sync goes to Turso (libSQL) over HTTP; URL + token are pasted in Settings (localStorage), see `docs/TURSO.md`.
+- Storage: Turso (libSQL, over HTTP) is the single source of truth; URL + token are pasted on a setup screen / Settings (localStorage), see `docs/TURSO.md`. Dexie (IndexedDB) is a disposable read-only cache for offline browsing, read through `dexie-react-hooks` (`useLiveQuery`). Writes go to Turso first, then write through to the cache; offline = error, nothing saved. `refreshCache()` replaces the cache with a full snapshot. No merge, no tombstones, no local-only mode.
 - All DB access goes through `src/db/repo.ts` (UI never touches Dexie tables directly).
 - Deploy: `.github/workflows/deploy.yml` on push to `main`.
 - Plain CSS with custom properties, no UI library. Use logical properties (`margin-inline-start`, `padding-inline`).
@@ -23,8 +23,8 @@ Equipment { id: string; name: string; updatedAt: number }   // name unique, case
 Workout   { id; name; description; equipmentIds: string[]; basedOnId?: string; createdAt: number; updatedAt: number }
 Lesson    { id; workoutId: string; date: string /*YYYY-MM-DD*/; time: string /*HH:mm*/; location: string; updatedAt: number }
 ```
-- IDs: `crypto.randomUUID()`. Every write sets `updatedAt` (needed for future sync).
-- Dexie db `shlomot` v1: `equipment: 'id, &name'`, `workouts: 'id, name, createdAt, *equipmentIds, basedOnId'`, `lessons: 'id, workoutId, date, location'`.
+- IDs: `crypto.randomUUID()`. Every write sets `updatedAt`.
+- Dexie cache `shlomot` (schema v1 tables, v3 drops `tombstones`): `equipment: 'id, &name'`, `workouts: 'id, name, createdAt, *equipmentIds, basedOnId'`, `lessons: 'id, workoutId, date, location'`.
 - A workout's lessons are queried by `workoutId`, never stored inside the workout.
 
 ## Rules

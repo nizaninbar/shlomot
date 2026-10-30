@@ -7,19 +7,14 @@ import {
   deleteLesson,
   deleteWorkout,
   DuplicateEquipmentError,
-  exportAll,
-  importAll,
-  InvalidBackupError,
   listLessons,
   listLocations,
   OfflineError,
-  parseBackup,
   refreshCache,
   saveEquipment,
   saveLesson,
   saveWorkout,
 } from './repo'
-import { seedIfEmpty } from './seed'
 import { fetchSnapshot, setTursoClient } from './turso'
 import { fakeTurso } from './fakeTurso'
 
@@ -153,36 +148,5 @@ describe('refreshCache', () => {
     fake.state.failing = true
     await expect(refreshCache()).rejects.toBeInstanceOf(OfflineError)
     expect(await db.workouts.toArray()).toEqual([w])
-  })
-})
-
-// Removed together with the backup feature in stage 8.
-describe('backup and seed (legacy)', () => {
-  it('seeds once', async () => {
-    await seedIfEmpty()
-    await seedIfEmpty()
-    expect(await db.equipment.count()).toBe(8)
-  })
-
-  it('export -> import round-trips the cache', async () => {
-    const eq = await saveEquipment({ name: 'כדור' })
-    const w = await saveWorkout({ name: 'א', description: 'ד', equipmentIds: [eq.id] })
-    const backup = parseBackup(JSON.parse(JSON.stringify(await exportAll())))
-    await db.workouts.clear()
-    await importAll(backup)
-    expect(await db.workouts.toArray()).toEqual([w])
-  })
-
-  it('rejects malformed files', () => {
-    expect(() => parseBackup({})).toThrow(InvalidBackupError)
-  })
-
-  it('reminder is due only after 14 days', async () => {
-    const { backupDue } = await import('../lib/backupMeta')
-    const day = 86_400_000
-    expect(backupDue(null, null, 100 * day)).toBe(false)
-    expect(backupDue(90 * day, 1, 100 * day)).toBe(false)
-    expect(backupDue(80 * day, 1, 100 * day)).toBe(true)
-    expect(backupDue(null, 80 * day, 100 * day)).toBe(true)
   })
 })

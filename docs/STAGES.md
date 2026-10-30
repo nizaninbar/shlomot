@@ -70,6 +70,7 @@ Decisions:
   - Replace `autosync.ts` with `cache.ts` (refresh on start/online/visible); drop "sync" wording.
   - Review on the phone: edit on A shows on B; airplane mode browses but save errors; clear site data repopulates.
 
-- [ ] **Stage 8: Remove the old machinery**
+- [x] **Stage 8: Remove the old machinery**
+  Notes: removed sync.ts, seed.ts, backupMeta.ts, backup functions in repo.ts, Settings backup/restore cards, Home reminder, `storage.persist()`; Dexie v3 drops `tombstones`. `main.tsx` had been committed empty in stage 7, now restored (calls `startCache()`). `applyRemote`/`listChangedSince` were already gone.
   - Delete `sync.ts`, `applyRemote`, `listChangedSince`, tombstones (`db.version(3)` with `tombstones: null`), `seed.ts` and its call in `main.tsx`, `exportAll/parseBackup/importAll`, `backupMeta.ts`, the Settings backup card, the Home backup reminder, `navigator.storage.persist()`.
   - Update `CLAUDE.md` (Dexie = read cache, Turso = truth, no tombstones) and `docs/TURSO.md`.
