@@ -17,7 +17,11 @@ export default function Home() {
   const [selected, setSelected] = useState<string[]>([])
 
   const equipmentName = useMemo(() => new Map(equipment?.map((e) => [e.id, e.name])), [equipment])
-  const visible = useMemo(() => filterWorkouts(workouts ?? [], query, selected), [workouts, query, selected])
+  const hasFilter = query.trim() !== '' || selected.length > 0
+  const visible = useMemo(
+    () => (hasFilter ? filterWorkouts(workouts ?? [], query, selected) : []),
+    [workouts, query, selected, hasFilter],
+  )
 
   function toggle(id: string) {
     setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
@@ -51,7 +55,10 @@ export default function Home() {
       )}
 
       {workouts && workouts.length === 0 && <EmptyState title={t.home.emptyTitle} text={t.home.emptyText} />}
-      {workouts && workouts.length > 0 && visible.length === 0 && (
+      {workouts && workouts.length > 0 && !hasFilter && (
+        <EmptyState title={t.home.promptTitle} text={t.home.promptText} />
+      )}
+      {workouts && workouts.length > 0 && hasFilter && visible.length === 0 && (
         <EmptyState title={t.home.noResultsTitle} text={t.home.noResultsText} />
       )}
 
