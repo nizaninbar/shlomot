@@ -63,7 +63,8 @@ Decisions:
   - `repo.ts`: rewrite `saveWorkout`, `deleteWorkout`, `saveLesson`, `deleteLesson`, `saveEquipment`, `deleteEquipment` as Turso write → cache write-through; list/get/clone stay cache reads. Add `refreshCache()` and `OfflineError`.
   - Tests with a fake Turso client (replace `sync.test.ts`, adapt `repo.test.ts`, `turso.test.ts`): success updates cache, failure leaves it untouched, cascades are one batch, duplicate name, refresh replaces the cache.
 
-- [ ] **Stage 7: UI for connection and failures**
+- [x] **Stage 7: UI for connection and failures**
+  Notes: `src/db/cache.ts` replaces `autosync.ts` (status store, `refresh`, `connect`, `disconnect` which also empties the cache, `startCache`). `App` shows `SetupScreen` (`ConnectForm`) until configured; `ConnectionBadge` in the header (dot only when ok, label when offline/error); `SyncSection` is now the connected-database card in Settings. Forms/Equipment show `connection.saveOffline` on `OfflineError`, keep their input, and disable buttons while writing. Phone checks still to do (A→B, airplane mode, clear site data). 25 tests pass, build passes.
   - Setup-required screen when unconfigured (reuse `SyncSection` fields); header connection indicator (online / offline read-only / error).
   - Hebrew strings in `src/strings.ts` (e.g. "אין חיבור, לא ניתן לשמור"); forms keep their input on failure; save disabled while writing.
   - Replace `autosync.ts` with `cache.ts` (refresh on start/online/visible); drop "sync" wording.

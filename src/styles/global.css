@@ -405,3 +405,36 @@ input[type='search'] {
   border: 1px solid var(--gold-soft);
   border-radius: var(--radius);
 }
+
+/* Connection indicator */
+.conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.conn + .header__link {
+  margin-inline-start: 0;
+}
+
+.conn__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--turquoise-deep);
+}
+
+.conn--offline .conn__dot {
+  background: var(--gold);
+}
+
+.conn--error .conn__dot {
+  background: #c0504d;
+}
+
+.conn--ok {
+  font-size: 0;
+}

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import Mandala from '../components/Mandala'
-import { getLesson, listLocations, saveLesson } from '../db/repo'
+import { getLesson, listLocations, OfflineError, saveLesson } from '../db/repo'
 import type { Lesson } from '../db/types'
 import { t } from '../strings'
 
@@ -62,8 +62,8 @@ function Fields({ workoutId, lesson }: { workoutId: string; lesson?: Lesson }) {
     try {
       await saveLesson({ id: lesson?.id, workoutId, date, time, location: location.trim() })
       navigate(`/workout/${workoutId}`, { replace: true })
-    } catch {
-      setError(t.lesson.saveFailed)
+    } catch (e) {
+      setError(e instanceof OfflineError ? t.connection.saveOffline : t.lesson.saveFailed)
       setSaving(false)
     }
   }

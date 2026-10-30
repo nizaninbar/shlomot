@@ -1,5 +1,8 @@
+import { useSyncExternalStore } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Header from './components/Header'
+import SetupScreen from './components/SetupScreen'
+import { getCacheStatus, subscribeCache } from './db/cache'
 import Equipment from './pages/Equipment'
 import Home from './pages/Home'
 import LessonForm from './pages/LessonForm'
@@ -8,10 +11,14 @@ import WorkoutDetail from './pages/WorkoutDetail'
 import WorkoutForm from './pages/WorkoutForm'
 
 export default function App() {
+  const { configured } = useSyncExternalStore(subscribeCache, getCacheStatus)
   return (
     <HashRouter>
       <Header />
       <main className="page">
+        {!configured ? (
+          <SetupScreen />
+        ) : (
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/workout/new" element={<WorkoutForm />} />
@@ -24,6 +31,7 @@ export default function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        )}
       </main>
     </HashRouter>
   )

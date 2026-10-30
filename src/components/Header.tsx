@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import ConnectionBadge from './ConnectionBadge'
 import { t } from '../strings'
 
 export default function Header() {
@@ -8,6 +9,7 @@ export default function Header() {
         <img className="header__logo" src={`${import.meta.env.BASE_URL}icons/logo-200.png`} alt="" width={48} height={48} />
         <span className="header__title">{t.appName}</span>
       </Link>
+      <ConnectionBadge />
       <Link to="/equipment" className="header__link">
         {t.equipment.link}
       </Link>

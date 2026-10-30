@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import EquipmentChips from '../components/EquipmentChips'
 import Mandala from '../components/Mandala'
-import { cloneWorkout, getWorkout, listEquipment, saveWorkout } from '../db/repo'
+import { cloneWorkout, getWorkout, listEquipment, OfflineError, saveWorkout } from '../db/repo'
 import type { Workout } from '../db/types'
 import type { WorkoutDraft } from '../db/repo'
 import { t } from '../strings'
@@ -74,8 +74,8 @@ function Fields({ workout, draft }: { workout?: Workout; draft?: WorkoutDraft })
       } else {
         navigate(`/workout/${saved.id}`, { replace: true })
       }
-    } catch {
-      setError(t.workout.saveFailed)
+    } catch (e) {
+      setError(e instanceof OfflineError ? t.connection.saveOffline : t.workout.saveFailed)
       setSaving(false)
     }
   }
