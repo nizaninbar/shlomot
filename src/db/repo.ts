@@ -1,5 +1,16 @@
+import type { Client, InStatement } from '@libsql/client/web'
 import { db } from './db'
-import type { Equipment, Lesson, SyncTable, Tombstone, Workout } from './types'
+import {
+  deleteEquipmentStmts,
+  deleteLessonStmt,
+  deleteWorkoutStmts,
+  fetchSnapshot,
+  getTursoClient,
+  upsertEquipment,
+  upsertLesson,
+  upsertWorkout,
+} from './turso'
+import type { Equipment, Lesson, Workout } from './types'
 
 export class DuplicateEquipmentError extends Error {
   constructor() {
@@ -8,14 +19,67 @@ export class DuplicateEquipmentError extends Error {
   }
 }
 
+/** Turso could not be reached (offline, not configured, or the request failed). Nothing was saved. */
+export class OfflineError extends Error {
+  constructor(cause?: unknown) {
+    super('turso unreachable', { cause })
+    this.name = 'OfflineError'
+  }
+}
+
 const newId = () => crypto.randomUUID()
 
-const tomb = (table: SyncTable, id: string, deletedAt: number): Tombstone => ({
-  key: `${table}:${id}`,
-  table,
-  id,
-  deletedAt,
-})
+const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false
+
+// Bumped by every write so refreshCache can tell its snapshot may predate a write.
+let writeEpoch = 0
+
+/**
+ * Turso is the only writable store: run the statements there first (one batch = one transaction),
+ * and only if that succeeds mirror the change into the Dexie cache.
+ */
+async function commit(statements: InStatement[], mirror: () => Promise<unknown>): Promise<void> {
+  if (isOffline()) throw new OfflineError()
+  try {
+    const client = await getTursoClient()
+    if (!client) throw new OfflineError()
+    await client.batch(statements, 'write')
+  } catch (e) {
+    if (e instanceof OfflineError) throw e
+    if (/UNIQUE constraint/i.test(String((e as Error)?.message))) throw new DuplicateEquipmentError()
+    throw new OfflineError(e)
+  }
+  writeEpoch++
+  try {
+    await mirror()
+  } catch (e) {
+    console.error('cache write failed; the next refresh will fix it', e) // Turso already has the change
+  }
+}
+
+/** Replaces the whole cache with a fresh Turso snapshot. Throws OfflineError if Turso can't be read. */
+export async function refreshCache(): Promise<void> {
+  if (isOffline()) throw new OfflineError()
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const epoch = writeEpoch
+    let snapshot
+    try {
+      const client: Client | null = await getTursoClient()
+      if (!client) throw new OfflineError()
+      snapshot = await fetchSnapshot(client)
+    } catch (e) {
+      throw e instanceof OfflineError ? e : new OfflineError(e)
+    }
+    if (epoch !== writeEpoch) continue // a write landed meanwhile; this snapshot may be stale
+    await db.transaction('rw', db.equipment, db.workouts, db.lessons, async () => {
+      await Promise.all([db.equipment.clear(), db.workouts.clear(), db.lessons.clear()])
+      await db.equipment.bulkAdd(snapshot.equipment)
+      await db.workouts.bulkAdd(snapshot.workouts)
+      await db.lessons.bulkAdd(snapshot.lessons)
+    })
+    return
+  }
+}
 
 // ---------- Workouts ----------
 
@@ -38,18 +102,17 @@ export async function saveWorkout(input: WorkoutDraft & { id?: string }): Promis
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   }
-  await db.workouts.put(workout)
+  await commit([upsertWorkout(workout)], () => db.workouts.put(workout))
   return workout
 }
 
 export async function deleteWorkout(id: string): Promise<void> {
-  await db.transaction('rw', db.workouts, db.lessons, db.tombstones, async () => {
-    const now = Date.now()
-    const lessonIds = await db.lessons.where('workoutId').equals(id).primaryKeys()
-    await db.lessons.bulkDelete(lessonIds)
-    await db.workouts.delete(id)
-    await db.tombstones.bulkPut([...lessonIds.map((l) => tomb('lessons', l, now)), tomb('workouts', id, now)])
-  })
+  await commit(deleteWorkoutStmts(id), () =>
+    db.transaction('rw', db.workouts, db.lessons, async () => {
+      await db.lessons.where('workoutId').equals(id).delete()
+      await db.workouts.delete(id)
+    }),
+  )
 }
 
 /** Workouts cloned from the given one, newest first. */
@@ -82,15 +145,12 @@ export async function getLesson(id: string): Promise<Lesson | undefined> {
 
 export async function saveLesson(input: Omit<Lesson, 'id' | 'updatedAt'> & { id?: string }): Promise<Lesson> {
   const lesson: Lesson = { ...input, id: input.id ?? newId(), updatedAt: Date.now() }
-  await db.lessons.put(lesson)
+  await commit([upsertLesson(lesson)], () => db.lessons.put(lesson))
   return lesson
 }
 
 export async function deleteLesson(id: string): Promise<void> {
-  await db.transaction('rw', db.lessons, db.tombstones, async () => {
-    await db.lessons.delete(id)
-    await db.tombstones.put(tomb('lessons', id, Date.now()))
-  })
+  await commit([deleteLessonStmt(id)], () => db.lessons.delete(id))
 }
 
 /** Distinct, non-empty past locations. */
@@ -115,37 +175,33 @@ export async function listEquipment(): Promise<Equipment[]> {
   return all.sort((a, b) => a.name.localeCompare(b.name, 'he'))
 }
 
-/** Creates (no id) or renames (id). Throws DuplicateEquipmentError on a case-insensitive name clash. */
+/** Creates (no id) or renames (id). Throws DuplicateEquipmentError on a case-insensitive name clash (Turso unique index). */
 export async function saveEquipment(input: { id?: string; name: string }): Promise<Equipment> {
   const name = input.name.trim()
   if (!name) throw new Error('empty equipment name')
-  return db.transaction('rw', db.equipment, async () => {
-    const lower = name.toLowerCase()
-    const clash = (await db.equipment.toArray()).some((e) => e.id !== input.id && e.name.toLowerCase() === lower)
-    if (clash) throw new DuplicateEquipmentError()
-    const item: Equipment = { id: input.id ?? newId(), name, updatedAt: Date.now() }
-    await db.equipment.put(item)
-    return item
-  })
+  const item: Equipment = { id: input.id ?? newId(), name, updatedAt: Date.now() }
+  await commit([upsertEquipment(item)], () => db.equipment.put(item))
+  return item
 }
 
 /** Removes the equipment and its id from every workout, atomically. */
 export async function deleteEquipment(id: string): Promise<void> {
-  await db.transaction('rw', db.equipment, db.workouts, db.tombstones, async () => {
-    const now = Date.now()
-    await db.workouts
-      .where('equipmentIds')
-      .equals(id)
-      .modify((w) => {
-        w.equipmentIds = w.equipmentIds.filter((e) => e !== id)
-        w.updatedAt = now
-      })
-    await db.equipment.delete(id)
-    await db.tombstones.put(tomb('equipment', id, now))
-  })
+  const now = Date.now()
+  await commit(deleteEquipmentStmts(id, now), () =>
+    db.transaction('rw', db.equipment, db.workouts, async () => {
+      await db.workouts
+        .where('equipmentIds')
+        .equals(id)
+        .modify((w) => {
+          w.equipmentIds = w.equipmentIds.filter((e) => e !== id)
+          w.updatedAt = now
+        })
+      await db.equipment.delete(id)
+    }),
+  )
 }
 
-// ---------- Backup ----------
+// ---------- Backup (removed in stage 8) ----------
 
 export type BackupData = {
   app: 'shlomot'
@@ -203,96 +259,12 @@ export function parseBackup(raw: unknown): BackupData {
   return raw as BackupData
 }
 
-/** Replaces all data in one transaction. Rows that disappear are recorded as deletions for sync. */
+/** Replaces the local cache only (not Turso); goes away with the backup feature in stage 8. */
 export async function importAll(data: BackupData): Promise<void> {
-  await db.transaction('rw', db.equipment, db.workouts, db.lessons, db.tombstones, async () => {
-    const now = Date.now()
-    const kept: Record<SyncTable, Set<string>> = {
-      equipment: new Set(data.equipment.map((r) => r.id)),
-      workouts: new Set(data.workouts.map((r) => r.id)),
-      lessons: new Set(data.lessons.map((r) => r.id)),
-    }
-    const gone: Tombstone[] = []
-    for (const table of ['equipment', 'workouts', 'lessons'] as const) {
-      for (const id of await db[table].toCollection().primaryKeys()) {
-        if (!kept[table].has(id)) gone.push(tomb(table, id, now))
-      }
-    }
-    await Promise.all([db.equipment.clear(), db.workouts.clear(), db.lessons.clear(), db.tombstones.clear()])
+  await db.transaction('rw', db.equipment, db.workouts, db.lessons, async () => {
+    await Promise.all([db.equipment.clear(), db.workouts.clear(), db.lessons.clear()])
     await db.equipment.bulkAdd(data.equipment)
     await db.workouts.bulkAdd(data.workouts)
     await db.lessons.bulkAdd(data.lessons)
-    await db.tombstones.bulkAdd(gone)
-  })
-}
-
-// ---------- Sync support ----------
-
-export type SyncBatch = {
-  equipment: Equipment[]
-  workouts: Workout[]
-  lessons: Lesson[]
-  tombstones: Tombstone[]
-}
-
-/** Everything written or deleted locally at or after `since`. */
-export async function listChangedSince(since: number): Promise<SyncBatch> {
-  const [equipment, workouts, lessons, tombstones] = await Promise.all([
-    db.equipment.filter((r) => r.updatedAt >= since).toArray(),
-    db.workouts.filter((r) => r.updatedAt >= since).toArray(),
-    db.lessons.filter((r) => r.updatedAt >= since).toArray(),
-    db.tombstones.where('deletedAt').aboveOrEqual(since).toArray(),
-  ])
-  return { equipment, workouts, lessons, tombstones }
-}
-
-/**
- * Applies rows pulled from the remote, last-write-wins on updatedAt. Writes bypass the
- * normal repo paths so nothing is re-stamped. A pulled equipment name that clashes with a
- * different local item is merged: the local twin is deleted and its workouts re-pointed.
- */
-export async function applyRemote(batch: SyncBatch): Promise<void> {
-  await db.transaction('rw', db.equipment, db.workouts, db.lessons, db.tombstones, async () => {
-    for (const t of batch.tombstones) {
-      const local = await db[t.table].get(t.id)
-      if (local && local.updatedAt > t.deletedAt) continue // edited after the delete elsewhere: keep
-      if (t.table === 'workouts') await db.lessons.where('workoutId').equals(t.id).delete()
-      await db[t.table].delete(t.id)
-      await db.tombstones.put(t)
-    }
-    const stale = async (table: SyncTable, id: string, updatedAt: number) => {
-      const local = await db[table].get(id)
-      if (local && local.updatedAt >= updatedAt) return true
-      const dead = await db.tombstones.get(`${table}:${id}`)
-      return !!dead && dead.deletedAt >= updatedAt
-    }
-    for (const e of batch.equipment) {
-      if (await stale('equipment', e.id, e.updatedAt)) continue
-      const lower = e.name.toLowerCase()
-      const twin = (await db.equipment.toArray()).find((o) => o.id !== e.id && o.name.toLowerCase() === lower)
-      if (twin) {
-        // Same item created independently (e.g. seeded defaults on a new device): merge into the remote id.
-        const now = Date.now()
-        const users = await db.workouts.where('equipmentIds').equals(twin.id).toArray()
-        for (const w of users) {
-          const ids = [...new Set(w.equipmentIds.map((id) => (id === twin.id ? e.id : id)))]
-          await db.workouts.put({ ...w, equipmentIds: ids, updatedAt: now })
-        }
-        await db.equipment.delete(twin.id)
-        await db.tombstones.put(tomb('equipment', twin.id, now))
-      }
-      await db.equipment.put(e)
-      await db.tombstones.delete(`equipment:${e.id}`)
-    }
-    for (const w of batch.workouts) {
-      if (await stale('workouts', w.id, w.updatedAt)) continue
-      await db.workouts.put(w)
-      await db.tombstones.delete(`workouts:${w.id}`)
-    }
-    for (const l of batch.lessons) {
-      if (await stale('lessons', l.id, l.updatedAt)) continue
-      await db.lessons.put(l)
-      await db.tombstones.delete(`lessons:${l.id}`)
-    }
   })
 }

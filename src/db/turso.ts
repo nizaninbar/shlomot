@@ -1,7 +1,5 @@
 import type { Client, InStatement } from '@libsql/client/web'
-import type { Equipment, Lesson, SyncTable, Tombstone, Workout } from './types'
-import type { SyncBatch } from './repo'
-import type { Remote } from './sync'
+import type { Equipment, Lesson, Workout } from './types'
 
 const URL_KEY = 'shlomot:tursoUrl'
 const TOKEN_KEY = 'shlomot:tursoToken'
@@ -46,8 +44,8 @@ export async function createTursoClient({ url, token }: TursoConfig): Promise<Cl
   return createClient({ url: url.trim().replace(/^libsql:\/\//, 'https://'), authToken: token.trim() })
 }
 
-// Columns mirror src/db/types.ts; deleted_at is a tombstone (set instead of removing the row).
-// Every column has a default so a tombstone-only upsert (id, updated_at, deleted_at) is valid.
+// Columns mirror src/db/types.ts. Turso is the source of truth and rows are really deleted;
+// deleted_at is a leftover from the old tombstone sync and is never written any more.
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS equipment (
     id TEXT PRIMARY KEY,
@@ -74,9 +72,12 @@ const SCHEMA = [
     updated_at INTEGER NOT NULL,
     deleted_at INTEGER
   )`,
-  'CREATE INDEX IF NOT EXISTS equipment_updated ON equipment (updated_at)',
-  'CREATE INDEX IF NOT EXISTS workouts_updated ON workouts (updated_at)',
-  'CREATE INDEX IF NOT EXISTS lessons_updated ON lessons (updated_at)',
+  // Rows tombstoned by the old sync are now just garbage (and could clash with the unique name).
+  'DELETE FROM equipment WHERE deleted_at IS NOT NULL',
+  'DELETE FROM workouts WHERE deleted_at IS NOT NULL',
+  'DELETE FROM lessons WHERE deleted_at IS NOT NULL',
+  'CREATE UNIQUE INDEX IF NOT EXISTS equipment_name_lower ON equipment (lower(name))',
+  'CREATE INDEX IF NOT EXISTS lessons_workout ON lessons (workout_id)',
 ]
 
 export async function ensureSchema(client: Client): Promise<void> {
@@ -93,12 +94,45 @@ export async function testConnection(config: TursoConfig): Promise<void> {
   }
 }
 
+// ---------- shared client ----------
+
+let shared: { key: string; client: Promise<Client> } | null = null
+let override: Client | null = null
+
+/** Tests inject a fake client here; pass null to go back to the configured one. */
+export function setTursoClient(client: Client | null): void {
+  override = client
+  shared = null
+}
+
+/**
+ * The one client the data layer writes through, created lazily with the schema ensured once.
+ * Returns null when this device has no URL/token yet.
+ */
+export async function getTursoClient(): Promise<Client | null> {
+  const config = override ? { url: 'override', token: '' } : getTursoConfig()
+  if (!config) return null
+  const key = `${config.url}
+${config.token}`
+  if (!shared || shared.key !== key) {
+    const pending = (async () => {
+      const client = override ?? (await createTursoClient(config))
+      await ensureSchema(client)
+      return client
+    })()
+    const entry = { key, client: pending }
+    shared = entry
+    // A failed start (offline, bad token) must not stick: the next call tries again.
+    pending.catch(() => {
+      if (shared === entry) shared = null
+    })
+  }
+  return shared.client
+}
+
 // ---------- row mapping (camelCase local <-> snake_case remote) ----------
 
 type Row = Record<string, unknown>
-
-const TABLES: SyncTable[] = ['equipment', 'workouts', 'lessons']
-const PAGE = 500
 
 const fromEquipment = (r: Row): Equipment => ({ id: r.id as string, name: r.name as string, updatedAt: Number(r.updated_at) })
 const fromWorkout = (r: Row): Workout => ({
@@ -119,75 +153,61 @@ const fromLesson = (r: Row): Lesson => ({
   updatedAt: Number(r.updated_at),
 })
 
-/** Newer-or-equal wins, so a device with stale data can't overwrite a later edit. */
-function upsert(table: SyncTable, cols: string[], args: (string | number | null)[]): InStatement {
+export type Snapshot = { equipment: Equipment[]; workouts: Workout[]; lessons: Lesson[] }
+
+/** Everything in the database, read in one batch so the three tables are consistent. */
+export async function fetchSnapshot(client: Client): Promise<Snapshot> {
+  const [eq, wo, le] = await client.batch(
+    ['SELECT * FROM equipment', 'SELECT * FROM workouts', 'SELECT * FROM lessons'],
+    'read',
+  )
+  return {
+    equipment: (eq.rows as unknown as Row[]).map(fromEquipment),
+    workouts: (wo.rows as unknown as Row[]).map(fromWorkout),
+    lessons: (le.rows as unknown as Row[]).map(fromLesson),
+  }
+}
+
+// ---------- statements ----------
+
+function upsert(table: string, cols: string[], args: (string | number | null)[]): InStatement {
   const sets = cols.filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`)
   return {
     sql: `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})
-      ON CONFLICT(id) DO UPDATE SET ${sets.join(', ')} WHERE excluded.updated_at >= ${table}.updated_at`,
+      ON CONFLICT(id) DO UPDATE SET ${sets.join(', ')}`,
     args,
   }
 }
 
-const equipmentStmt = (r: Equipment) =>
-  upsert('equipment', ['id', 'name', 'updated_at', 'deleted_at'], [r.id, r.name, r.updatedAt, null])
-const workoutStmt = (r: Workout) =>
+export const upsertEquipment = (r: Equipment) => upsert('equipment', ['id', 'name', 'updated_at'], [r.id, r.name, r.updatedAt])
+export const upsertWorkout = (r: Workout) =>
   upsert(
     'workouts',
-    ['id', 'name', 'description', 'equipment_ids', 'based_on_id', 'created_at', 'updated_at', 'deleted_at'],
-    [r.id, r.name, r.description, JSON.stringify(r.equipmentIds), r.basedOnId ?? null, r.createdAt, r.updatedAt, null],
+    ['id', 'name', 'description', 'equipment_ids', 'based_on_id', 'created_at', 'updated_at'],
+    [r.id, r.name, r.description, JSON.stringify(r.equipmentIds), r.basedOnId ?? null, r.createdAt, r.updatedAt],
   )
-const lessonStmt = (r: Lesson) =>
+export const upsertLesson = (r: Lesson) =>
   upsert(
     'lessons',
-    ['id', 'workout_id', 'date', 'time', 'location', 'updated_at', 'deleted_at'],
-    [r.id, r.workoutId, r.date, r.time, r.location, r.updatedAt, null],
+    ['id', 'workout_id', 'date', 'time', 'location', 'updated_at'],
+    [r.id, r.workoutId, r.date, r.time, r.location, r.updatedAt],
   )
-const tombstoneStmt = (t: Tombstone) => upsert(t.table, ['id', 'updated_at', 'deleted_at'], [t.id, t.deletedAt, t.deletedAt])
 
-export function tursoRemote(client: Client): Remote {
-  async function fetchTable(table: SyncTable, since: number): Promise<Row[]> {
-    const rows: Row[] = []
-    for (let offset = 0; ; offset += PAGE) {
-      const res = await client.execute({
-        sql: `SELECT * FROM ${table} WHERE updated_at >= ? ORDER BY updated_at, id LIMIT ? OFFSET ?`,
-        args: [since, PAGE, offset],
-      })
-      rows.push(...(res.rows as unknown as Row[]))
-      if (res.rows.length < PAGE) return rows
-    }
-  }
+export const deleteWorkoutStmts = (id: string): InStatement[] => [
+  { sql: 'DELETE FROM lessons WHERE workout_id = ?', args: [id] },
+  { sql: 'DELETE FROM workouts WHERE id = ?', args: [id] },
+]
 
-  return {
-    async pull(since) {
-      await ensureSchema(client)
-      const [eq, wo, le] = await Promise.all(TABLES.map((t) => fetchTable(t, since)))
-      const batch: SyncBatch = { equipment: [], workouts: [], lessons: [], tombstones: [] }
-      const sort = (table: SyncTable, rows: Row[], live: (r: Row) => void) => {
-        for (const r of rows) {
-          if (r.deleted_at != null) {
-            batch.tombstones.push({ key: `${table}:${r.id}`, table, id: r.id as string, deletedAt: Number(r.deleted_at) })
-          } else live(r)
-        }
-      }
-      sort('equipment', eq, (r) => batch.equipment.push(fromEquipment(r)))
-      sort('workouts', wo, (r) => batch.workouts.push(fromWorkout(r)))
-      sort('lessons', le, (r) => batch.lessons.push(fromLesson(r)))
-      return batch
-    },
+export const deleteLessonStmt = (id: string): InStatement => ({ sql: 'DELETE FROM lessons WHERE id = ?', args: [id] })
 
-    async push(batch) {
-      const dead = (table: SyncTable) => batch.tombstones.filter((t) => t.table === table).map(tombstoneStmt)
-      // Equipment and workouts first: lessons may refer to them.
-      const stmts = [
-        ...batch.equipment.map(equipmentStmt),
-        ...dead('equipment'),
-        ...batch.workouts.map(workoutStmt),
-        ...dead('workouts'),
-        ...batch.lessons.map(lessonStmt),
-        ...dead('lessons'),
-      ]
-      for (let i = 0; i < stmts.length; i += PAGE) await client.batch(stmts.slice(i, i + PAGE), 'write')
-    },
-  }
-}
+/** Strips the id from every workout that uses it (done in SQL, so a stale cache can't miss one), then deletes it. */
+export const deleteEquipmentStmts = (id: string, now: number): InStatement[] => [
+  {
+    sql: `UPDATE workouts
+      SET equipment_ids = (SELECT json_group_array(value) FROM json_each(workouts.equipment_ids) WHERE value != ?),
+          updated_at = ?
+      WHERE EXISTS (SELECT 1 FROM json_each(workouts.equipment_ids) WHERE value = ?)`,
+    args: [id, now, id],
+  },
+  { sql: 'DELETE FROM equipment WHERE id = ?', args: [id] },
+]

@@ -44,3 +44,31 @@ When a stage is done: tick it and add 2–3 lines of notes.
   Notes: setup in `docs/TURSO.md`. Switched from Supabase (free tier full, pauses after 7 idle days). The user pastes the Turso URL + token into the Settings sync card; they live in localStorage only (no secrets in the bundle or repo). `src/db/turso.ts` creates the tables itself and implements `Remote` over `@libsql/client/web`. Dexie v2 adds a local `tombstones` table written by every delete; `sync.ts` pulls then pushes (tested with a fake remote, 5 tests); `autosync.ts` syncs on start, online, app-visible and 4s after edits. Verified working end to end with a real Turso DB.
   - Tables mirror types + `deleted_at` tombstones; upserts are last-write-wins by `updated_at`.
   - `src/db/sync.ts`: push local changes, pull `updatedAt > lastPull`. App stays fully usable offline.
+
+## Turso as the single source of truth (stages 6–8)
+
+Why: every device holds a full writable Dexie copy that is reconciled by two-way last-write-wins sync, which causes inconsistencies (stale edits, resurrected deletes, merged duplicates). Turso becomes the only writable store; Dexie becomes a disposable read-only cache for offline browsing.
+
+Decisions:
+- Writes go to Turso first (one `client.batch` for cascades), then write through to the cache. Offline or failed write = error shown, nothing saved locally.
+- `refreshCache()` replaces the cache with a full Turso snapshot (on start, online, app visible, after writes). No `updatedAt` comparison, no tombstones, no merge.
+- Real `DELETE`s. Equipment name uniqueness enforced by a Turso unique index on `lower(name)` → `DuplicateEquipmentError`.
+- Unconfigured device (no URL/token) shows a blocking setup screen. No local-only mode.
+- Default-equipment seeding and JSON backup/import/export are removed.
+- No data migration: Turso is confirmed up to date; local copies are discarded.
+
+- [x] **Stage 6: Turso-first data layer**
+  Notes: writes go through `commit()` in `repo.ts` (one `client.batch`, then cache write-through); failures throw `OfflineError`, a unique-index hit throws `DuplicateEquipmentError`. `refreshCache()` replaces the cache and retries if a write landed meanwhile. `ensureSchema` also deletes old tombstoned rows and creates the `lower(name)` unique index; `getTursoClient()` is the shared client (`setTursoClient` injects the fake from `fakeTurso.ts`, a real in-memory libSQL). Equipment delete strips the id from workouts in SQL (`json_each`). `sync.ts` is now just the two leftover helpers and `autosync.ts` just calls `refreshCache` (both replaced in 7/8); backup/seed still present until stage 8. 25 tests pass, build passes.
+  - `turso.ts`: query/execute helpers, unique index on `lower(name)`, hard deletes (`deleted_at` column left unused).
+  - `repo.ts`: rewrite `saveWorkout`, `deleteWorkout`, `saveLesson`, `deleteLesson`, `saveEquipment`, `deleteEquipment` as Turso write → cache write-through; list/get/clone stay cache reads. Add `refreshCache()` and `OfflineError`.
+  - Tests with a fake Turso client (replace `sync.test.ts`, adapt `repo.test.ts`, `turso.test.ts`): success updates cache, failure leaves it untouched, cascades are one batch, duplicate name, refresh replaces the cache.
+
+- [ ] **Stage 7: UI for connection and failures**
+  - Setup-required screen when unconfigured (reuse `SyncSection` fields); header connection indicator (online / offline read-only / error).
+  - Hebrew strings in `src/strings.ts` (e.g. "אין חיבור, לא ניתן לשמור"); forms keep their input on failure; save disabled while writing.
+  - Replace `autosync.ts` with `cache.ts` (refresh on start/online/visible); drop "sync" wording.
+  - Review on the phone: edit on A shows on B; airplane mode browses but save errors; clear site data repopulates.
+
+- [ ] **Stage 8: Remove the old machinery**
+  - Delete `sync.ts`, `applyRemote`, `listChangedSince`, tombstones (`db.version(3)` with `tombstones: null`), `seed.ts` and its call in `main.tsx`, `exportAll/parseBackup/importAll`, `backupMeta.ts`, the Settings backup card, the Home backup reminder, `navigator.storage.persist()`.
+  - Update `CLAUDE.md` (Dexie = read cache, Turso = truth, no tombstones) and `docs/TURSO.md`.

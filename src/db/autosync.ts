@@ -1,6 +1,5 @@
-import { db } from './db'
-import { syncNow } from './sync'
-import { createTursoClient, getTursoConfig, tursoRemote } from './turso'
+import { refreshCache } from './repo'
+import { getTursoConfig } from './turso'
 
 export type SyncStatus = { state: 'idle' | 'syncing' | 'error'; at: number | null }
 
@@ -25,17 +24,14 @@ export async function runSync(): Promise<void> {
   const config = getTursoConfig()
   if (!config || running || !navigator.onLine) return
   running = true
-  let client: Awaited<ReturnType<typeof createTursoClient>> | undefined
   try {
     set({ ...status, state: 'syncing' })
-    client = await createTursoClient(config)
-    await syncNow(tursoRemote(client))
+    await refreshCache()
     set({ state: 'idle', at: Date.now() })
   } catch (e) {
     console.error(e)
     set({ ...status, state: 'error' })
   } finally {
-    client?.close()
     running = false
   }
 }
@@ -49,10 +45,5 @@ function schedule(ms: number) {
 export function startAutoSync(): void {
   window.addEventListener('online', () => schedule(0))
   document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && schedule(0))
-  for (const table of [db.equipment, db.workouts, db.lessons, db.tombstones]) {
-    table.hook('creating', () => void (running || schedule(4000)))
-    table.hook('updating', () => void (running || schedule(4000)))
-    table.hook('deleting', () => void (running || schedule(4000)))
-  }
   schedule(0)
 }
