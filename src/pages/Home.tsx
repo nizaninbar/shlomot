@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import EmptyState from '../components/EmptyState'
+import EquipmentIcon from '../components/icons/equipmentIcons'
 import EquipmentChips from '../components/EquipmentChips'
 import Mandala from '../components/Mandala'
 import { lastLessonDates, listEquipment, listWorkouts } from '../db/repo'
@@ -17,6 +18,7 @@ export default function Home() {
   const [selected, setSelected] = useState<string[]>([])
 
   const equipmentName = useMemo(() => new Map(equipment?.map((e) => [e.id, e.name])), [equipment])
+  const equipmentIcon = useMemo(() => new Map(equipment?.map((e) => [e.id, e.icon])), [equipment])
   const hasFilter = query.trim() !== '' || selected.length > 0
   const visible = useMemo(
     () => (hasFilter ? filterWorkouts(workouts ?? [], query, selected, equipmentName) : []),
@@ -74,6 +76,7 @@ export default function Home() {
                   <span className="tags">
                     {w.equipmentIds.map((id) => (
                       <span key={id} className="tag">
+                        {equipmentIcon.get(id) && <EquipmentIcon name={equipmentIcon.get(id)} />}
                         {equipmentName.get(id) ?? ''}
                       </span>
                     ))}

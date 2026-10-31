@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import EmptyState from '../components/EmptyState'
+import EquipmentIcon from '../components/icons/equipmentIcons'
+import IconPicker from '../components/IconPicker'
 import Mandala from '../components/Mandala'
 import { deleteEquipment, DuplicateEquipmentError, listEquipment, OfflineError, saveEquipment } from '../db/repo'
 import { t } from '../strings'
@@ -8,8 +10,10 @@ import { t } from '../strings'
 export default function Equipment() {
   const items = useLiveQuery(listEquipment, [])
   const [newName, setNewName] = useState('')
+  const [newIcon, setNewIcon] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
+  const [editIcon, setEditIcon] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -36,13 +40,16 @@ export default function Equipment() {
   async function onAdd(e: FormEvent) {
     e.preventDefault()
     if (!newName.trim()) return
-    if (await run(() => saveEquipment({ name: newName }))) setNewName('')
+    if (await run(() => saveEquipment({ name: newName, icon: newIcon }))) {
+      setNewName('')
+      setNewIcon('')
+    }
   }
 
   async function onRename(e: FormEvent) {
     e.preventDefault()
     if (!editingId || !editName.trim()) return
-    if (await run(() => saveEquipment({ id: editingId, name: editName }))) setEditingId(null)
+    if (await run(() => saveEquipment({ id: editingId, name: editName, icon: editIcon }))) setEditingId(null)
   }
 
   async function onDelete(id: string, name: string) {
@@ -66,6 +73,7 @@ export default function Equipment() {
           {t.equipment.add}
         </button>
       </form>
+      <IconPicker value={newIcon} onChange={setNewIcon} />
       {error && (
         <p className="error" role="alert">
           {error}
@@ -78,7 +86,8 @@ export default function Equipment() {
         {items?.map((item) => (
           <li key={item.id} className="list__item">
             {editingId === item.id ? (
-              <form className="row-form" onSubmit={onRename}>
+              <form className="edit-form" onSubmit={onRename}>
+                <div className="row-form">
                 <input
                   className="input"
                   value={editName}
@@ -92,9 +101,12 @@ export default function Equipment() {
                 <button className="btn" type="button" onClick={() => setEditingId(null)}>
                   {t.cancel}
                 </button>
+                </div>
+                <IconPicker value={editIcon} onChange={setEditIcon} />
               </form>
             ) : (
               <>
+                {item.icon && <EquipmentIcon name={item.icon} />}
                 <span className="list__name">{item.name}</span>
                 <button
                   className="btn"
@@ -102,10 +114,11 @@ export default function Equipment() {
                   onClick={() => {
                     setEditingId(item.id)
                     setEditName(item.name)
+                    setEditIcon(item.icon ?? '')
                     setError('')
                   }}
                 >
-                  {t.equipment.rename}
+                  {t.equipment.edit}
                 </button>
                 <button className="btn btn--danger" type="button" disabled={busy} onClick={() => onDelete(item.id, item.name)}>
                   {t.delete}

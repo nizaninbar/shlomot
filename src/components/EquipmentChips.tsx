@@ -1,3 +1,4 @@
+import EquipmentIcon from './icons/equipmentIcons'
 import type { Equipment } from '../db/types'
 
 type Props = {
@@ -22,6 +23,7 @@ export default function EquipmentChips({ items, selectedIds, onToggle, label, la
             aria-pressed={on}
             onClick={() => onToggle(item.id)}
           >
+            {item.icon && <EquipmentIcon name={item.icon} />}
             {item.name}
           </button>
         )

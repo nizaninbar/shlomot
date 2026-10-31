@@ -66,6 +66,18 @@ describe('writes go to Turso first, then the cache', () => {
 })
 
 describe('equipment', () => {
+  it('saves an icon, keeps it on rename, and clears it with an empty string', async () => {
+    const a = await saveEquipment({ name: 'כדור', icon: 'ball' })
+    expect(a.icon).toBe('ball')
+    const renamed = await saveEquipment({ id: a.id, name: 'כדור גדול' })
+    expect(renamed.icon).toBe('ball')
+    expect((await remote()).equipment[0]).toMatchObject({ name: 'כדור גדול', icon: 'ball' })
+    expect((await db.equipment.get(a.id))!.icon).toBe('ball')
+    const cleared = await saveEquipment({ id: a.id, name: 'כדור גדול', icon: '' })
+    expect(cleared.icon).toBeUndefined()
+    expect((await remote()).equipment[0].icon).toBeUndefined()
+  })
+
   it('rejects duplicate names case-insensitively, allows renaming itself', async () => {
     const a = await saveEquipment({ name: 'Ball' })
     await expect(saveEquipment({ name: ' ball ' })).rejects.toBeInstanceOf(DuplicateEquipmentError)

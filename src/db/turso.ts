@@ -50,6 +50,7 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS equipment (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL DEFAULT '',
+    icon TEXT,
     updated_at INTEGER NOT NULL,
     deleted_at INTEGER
   )`,
@@ -82,6 +83,9 @@ const SCHEMA = [
 
 export async function ensureSchema(client: Client): Promise<void> {
   await client.batch(SCHEMA, 'write')
+  // Tables created before stage 9 have no icon column; CREATE TABLE IF NOT EXISTS won't add it.
+  const columns = await client.execute('PRAGMA table_info(equipment)')
+  if (!columns.rows.some((r) => r.name === 'icon')) await client.execute('ALTER TABLE equipment ADD COLUMN icon TEXT')
 }
 
 /** Checks the URL and token work and creates the tables. Throws when they don't. */
@@ -134,7 +138,12 @@ ${config.token}`
 
 type Row = Record<string, unknown>
 
-const fromEquipment = (r: Row): Equipment => ({ id: r.id as string, name: r.name as string, updatedAt: Number(r.updated_at) })
+const fromEquipment = (r: Row): Equipment => ({
+  id: r.id as string,
+  name: r.name as string,
+  ...(r.icon ? { icon: r.icon as string } : {}),
+  updatedAt: Number(r.updated_at),
+})
 const fromWorkout = (r: Row): Workout => ({
   id: r.id as string,
   name: r.name as string,
@@ -179,7 +188,8 @@ function upsert(table: string, cols: string[], args: (string | number | null)[])
   }
 }
 
-export const upsertEquipment = (r: Equipment) => upsert('equipment', ['id', 'name', 'updated_at'], [r.id, r.name, r.updatedAt])
+export const upsertEquipment = (r: Equipment) =>
+  upsert('equipment', ['id', 'name', 'icon', 'updated_at'], [r.id, r.name, r.icon ?? null, r.updatedAt])
 export const upsertWorkout = (r: Workout) =>
   upsert(
     'workouts',

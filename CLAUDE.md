@@ -1,7 +1,8 @@
 # shlomot (שלומות)
 
 Mobile-first Hebrew RTL PWA for one Pilates instructor to plan classes from past ones. Phone only, MVP, free hosting.
-Build progress and next stage: see `docs/STAGES.md`. Do one stage per session, then stop for review.
+Open stages and next stage: see `docs/STAGES.md`. Do one stage per session, then stop for review.
+Completed stages 0-8 are archived in `docs/20261031/STAGES.md`; do not read it unless asked.
 
 ## Stack
 - Vite + React + TypeScript. `index.html` is `lang="he" dir="rtl"`.

@@ -175,11 +175,16 @@ export async function listEquipment(): Promise<Equipment[]> {
   return all.sort((a, b) => a.name.localeCompare(b.name, 'he'))
 }
 
-/** Creates (no id) or renames (id). Throws DuplicateEquipmentError on a case-insensitive name clash (Turso unique index). */
-export async function saveEquipment(input: { id?: string; name: string }): Promise<Equipment> {
+/**
+ * Creates (no id) or edits (id). `icon` omitted keeps the existing icon; '' clears it.
+ * Throws DuplicateEquipmentError on a case-insensitive name clash (Turso unique index).
+ */
+export async function saveEquipment(input: { id?: string; name: string; icon?: string }): Promise<Equipment> {
   const name = input.name.trim()
   if (!name) throw new Error('empty equipment name')
-  const item: Equipment = { id: input.id ?? newId(), name, updatedAt: Date.now() }
+  const existing = input.id ? await db.equipment.get(input.id) : undefined
+  const icon = input.icon === undefined ? existing?.icon : input.icon || undefined
+  const item: Equipment = { id: input.id ?? newId(), name, ...(icon ? { icon } : {}), updatedAt: Date.now() }
   await commit([upsertEquipment(item)], () => db.equipment.put(item))
   return item
 }

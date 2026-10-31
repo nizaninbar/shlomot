@@ -1,4 +1,4 @@
-export type Equipment = { id: string; name: string; updatedAt: number }
+export type Equipment = { id: string; name: string; icon?: string; updatedAt: number }
 
 export type Workout = {
   id: string

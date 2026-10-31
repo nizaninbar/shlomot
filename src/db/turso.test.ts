@@ -23,6 +23,23 @@ describe('turso schema and statements', () => {
     expect(snap.workouts[0]).toMatchObject({ equipmentIds: ['e1'], basedOnId: 'w0', createdAt: 5 })
   })
 
+  it('round-trips an equipment icon', async () => {
+    const { client } = await setup()
+    await client.batch([upsertEquipment({ id: 'e1', name: 'כדור', icon: 'ball', updatedAt: 10 })], 'write')
+    expect((await fetchSnapshot(client)).equipment).toEqual([{ id: 'e1', name: 'כדור', icon: 'ball', updatedAt: 10 }])
+  })
+
+  it('adds the icon column to an equipment table created before icons existed', async () => {
+    const { client, real } = fakeTurso()
+    await real.execute("CREATE TABLE equipment (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', updated_at INTEGER NOT NULL, deleted_at INTEGER)")
+    await real.execute({ sql: "INSERT INTO equipment (id, name, updated_at) VALUES ('old', 'כדור', 1)", args: [] })
+    await ensureSchema(client)
+    await ensureSchema(client) // idempotent
+    expect((await fetchSnapshot(client)).equipment).toEqual([{ id: 'old', name: 'כדור', updatedAt: 1 }])
+    await client.batch([upsertEquipment({ id: 'n', name: 'גומייה', icon: 'band', updatedAt: 2 })], 'write')
+    expect((await fetchSnapshot(client)).equipment.find((e) => e.id === 'n')?.icon).toBe('band')
+  })
+
   it('unique index on lower(name) rejects case-insensitive duplicates', async () => {
     const { client } = await setup()
     await client.batch([upsertEquipment({ id: 'a', name: 'Ball', updatedAt: 1 })], 'write')

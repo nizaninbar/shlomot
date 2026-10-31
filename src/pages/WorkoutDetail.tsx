@@ -1,3 +1,4 @@
+import EquipmentIcon from '../components/icons/equipmentIcons'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import Mandala from '../components/Mandala'
@@ -29,9 +30,9 @@ export default function WorkoutDetail() {
     )
   }
 
-  const names = workout.equipmentIds
-    .map((eid) => equipment?.find((e) => e.id === eid)?.name)
-    .filter((n): n is string => !!n)
+  const tagged = workout.equipmentIds
+    .map((eid) => equipment?.find((e) => e.id === eid))
+    .filter((e): e is NonNullable<typeof e> => !!e)
 
   async function onDelete() {
     if (!workout || !window.confirm(t.workout.confirmDelete(workout.name))) return
@@ -46,11 +47,12 @@ export default function WorkoutDetail() {
         {t.back}
       </Link>
       <h1 className="page__title">{workout.name}</h1>
-      {names.length > 0 && (
+      {tagged.length > 0 && (
         <div className="tags">
-          {names.map((n) => (
-            <span key={n} className="tag">
-              {n}
+          {tagged.map((e) => (
+            <span key={e.id} className="tag">
+              {e.icon && <EquipmentIcon name={e.icon} />}
+              {e.name}
             </span>
           ))}
         </div>
