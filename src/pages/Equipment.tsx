@@ -10,7 +10,6 @@ import { t } from '../strings'
 export default function Equipment() {
   const items = useLiveQuery(listEquipment, [])
   const [newName, setNewName] = useState('')
-  const [newIcon, setNewIcon] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editIcon, setEditIcon] = useState('')
@@ -40,10 +39,7 @@ export default function Equipment() {
   async function onAdd(e: FormEvent) {
     e.preventDefault()
     if (!newName.trim()) return
-    if (await run(() => saveEquipment({ name: newName, icon: newIcon }))) {
-      setNewName('')
-      setNewIcon('')
-    }
+    if (await run(() => saveEquipment({ name: newName }))) setNewName('')
   }
 
   async function onRename(e: FormEvent) {
@@ -73,7 +69,6 @@ export default function Equipment() {
           {t.equipment.add}
         </button>
       </form>
-      <IconPicker value={newIcon} onChange={setNewIcon} />
       {error && (
         <p className="error" role="alert">
           {error}
