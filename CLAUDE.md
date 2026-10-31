@@ -37,5 +37,6 @@ Lesson    { id; workoutId: string; date: string /*YYYY-MM-DD*/; time: string /*H
 ## UI conventions
 - All UI text in Hebrew, kept in `src/strings.ts`.
 - Touch targets ≥ 48px (`--touch`), inputs ≥ 16px font, 16px side gutter, no horizontal scroll at 360px.
+- Text size is user-adjustable (Settings, 17/20/23px root via `--root-size`): size text and text containers in `rem`, never `px` (no fixed heights on text; use `min-height`). Check new screens at 360px at the largest size.
 - Tokens in `src/styles/theme.css`: cream background, card, turquoise (deep variant for text/buttons), pink accent, thin gold 1px lines, font Assistant.
 - Feel: calm, warm, feminine wellness studio. Faint gold mandala watermark (`src/components/Mandala.tsx`).

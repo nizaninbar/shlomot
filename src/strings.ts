@@ -89,5 +89,11 @@ export const t = {
   settings: {
     link: 'הגדרות',
     title: 'הגדרות',
+    fontSize: {
+      title: 'גודל טקסט',
+      normal: 'רגיל',
+      large: 'גדול',
+      xlarge: 'גדול מאוד',
+    },
   },
 } as const
