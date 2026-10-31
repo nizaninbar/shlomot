@@ -1,79 +1,79 @@
 import type { ReactNode } from 'react'
 
 // 24x24 line icons drawn with currentColor. Keys are stored in Equipment.icon, so never rename one.
+const SOFT = { fill: 'currentColor', fillOpacity: 0.16 }
+
 const PATHS: Record<string, ReactNode> = {
-  ball: (
+  yogablock: (
     <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" />
+      <path d="M3 9l4-4h14l-4 4z" {...SOFT} />
+      <rect x="3" y="9" width="14" height="10" {...SOFT} />
+      <path d="M17 9l4-4v10l-4 4z" {...SOFT} />
     </>
   ),
-  band: (
+  bandclosed: (
     <>
-      <ellipse cx="12" cy="12" rx="9" ry="5" />
-      <path d="M3 12c0 3 4 5 9 5s9-2 9-5" />
+      <rect x="2" y="7.5" width="20" height="9" rx="4.5" />
+      <rect x="5.500" y="10.500" width="13" height="3" rx="1.500" />
     </>
   ),
-  mat: (
+  bandopen: <path d="M2 8c4-3 6 3 10 0s6 3 10 0v6c-4 3-6-3-10 0s-6-3-10 0z" {...SOFT} />,
+  bandhandles: (
     <>
-      <rect x="3" y="8" width="18" height="8" rx="1" />
-      <circle cx="17" cy="12" r="3" />
-    </>
-  ),
-  weights: (
-    <>
-      <path d="M7 8v8M17 8v8M4 10v4M20 10v4M7 12h10" />
-    </>
-  ),
-  ring: (
-    <>
-      <circle cx="12" cy="12" r="8" />
-      <circle cx="12" cy="12" r="5" />
+      <rect x="2" y="7" width="5" height="10" rx="2.500" {...SOFT} />
+      <rect x="17" y="7" width="5" height="10" rx="2.500" {...SOFT} />
+      <path d="M7 10.500h10M7 13.500h10" />
     </>
   ),
   roller: (
     <>
-      <rect x="3" y="8" width="18" height="8" rx="4" />
-      <path d="M8 8v8M16 8v8" />
+      <path d="M6 6.500h12M6 17.500h12" />
+      <ellipse cx="18" cy="12" rx="3" ry="5.500" {...SOFT} />
+      <ellipse cx="6" cy="12" rx="3" ry="5.500" {...SOFT} />
     </>
   ),
-  pole: <path d="M5 19L19 5M4 16l4 4M16 4l4 4" />,
-  chair: <path d="M7 4v9h10v7M7 13v7M5 13h14M17 4v9" />,
-  towel: (
+  pilatesring: (
     <>
-      <path d="M5 5h14v14H5z" />
-      <path d="M5 9h14M9 5v14" />
+      <circle cx="12" cy="12" r="7.500" />
+      <circle cx="12" cy="12" r="5" />
+      <rect x="1.500" y="9" width="4" height="6" rx="1.500" {...SOFT} />
+      <rect x="18.500" y="9" width="4" height="6" rx="1.500" {...SOFT} />
     </>
   ),
-  bottle: <path d="M10 3h4v3l2 3v11a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V9l2-3zM8 13h8" />,
-  heart: <path d="M12 20S4 15 4 9a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 6-8 11-8 11z" />,
-  star: <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" />,
-  leaf: <path d="M5 19C5 9 11 5 20 4c0 9-4 15-14 15zM5 19l8-8" />,
-  flower: (
+  fitball: (
     <>
-      <circle cx="12" cy="12" r="2.5" />
-      <path d="M12 9.5C10 6 12 3 12 3s2 3 0 6.5M12 14.5c-2 3.500 0 6.500 0 6.500s2-3 0-6.500M9.500 12C6 10 3 12 3 12s3 2 6.500 0M14.500 12c3.500-2 6.500 0 6.500 0s-3 2-6.500 0" />
+      <circle cx="12" cy="12" r="10" {...SOFT} />
+      <path d="M2.500 9c6 3 13 3 19 0M2.500 15c6-3 13-3 19 0M12 2v20" />
     </>
   ),
-  sun: (
+  smallball: (
     <>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" />
+      <circle cx="12" cy="12" r="6" {...SOFT} />
+      <path d="M8.500 9.500a4.500 4.500 0 0 1 3-2.500" />
     </>
   ),
-  moon: <path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10z" />,
-  drop: <path d="M12 3s6 6 6 11a6 6 0 0 1-12 0c0-5 6-11 6-11z" />,
-  feather: <path d="M20 4C10 4 6 9 6 15v3M20 4c0 7-4 11-11 11M6 18l-2 2M9 12h5" />,
-  bolt: <path d="M13 3L5 13h6l-1 8 8-10h-6z" />,
-  mountain: <path d="M2 19l7-12 4 7 3-4 6 9z" />,
-  wave: <path d="M2 9c3-3 5 3 8 0s5 3 8 0M2 15c3-3 5 3 8 0s5 3 8 0" />,
-  cushion: (
+  noequipment: (
     <>
-      <path d="M5 6c4 1 10 1 14 0 1 4 1 8 0 12-4-1-10-1-14 0-1-4-1-8 0-12z" />
+      <circle cx="12" cy="4.500" r="2.500" {...SOFT} />
+      <path d="M12 8v7M4 8l8 2 8-2M8.500 21.500L12 15l3.500 6.500" />
     </>
   ),
-  yogablock: <path d="M4 9l3-3h13v8l-3 3H4zM4 9h13v8M17 9l3-3" />,
-  rope: <path d="M4 20c0-8 4-8 4-12a3 3 0 0 1 6 0M20 20c0-8-4-8-4-12M6 20h-3M21 20h-3" />,
+  weights: (
+    <>
+      <rect x="2" y="9" width="3" height="6" rx="1" {...SOFT} />
+      <rect x="5" y="6.500" width="3.500" height="11" rx="1" {...SOFT} />
+      <rect x="15.500" y="6.500" width="3.500" height="11" rx="1" {...SOFT} />
+      <rect x="19" y="9" width="3" height="6" rx="1" {...SOFT} />
+      <path d="M8.500 12h7" />
+    </>
+  ),
+  mat: (
+    <>
+      <rect x="9" y="14" width="13" height="4" rx="0.500" {...SOFT} />
+      <circle cx="7" cy="13" r="4.500" {...SOFT} />
+      <circle cx="7" cy="13" r="1.500" />
+    </>
+  ),
 }
 
 export const EQUIPMENT_ICON_KEYS = Object.keys(PATHS)
@@ -89,7 +89,7 @@ export default function EquipmentIcon({ name, className }: Props) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.6"
+      strokeWidth="1.7"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"

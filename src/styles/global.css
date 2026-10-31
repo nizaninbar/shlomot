@@ -281,8 +281,8 @@ input[type='search'] {
 
 .eq-icon {
   flex: none;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
 }
 
 .edit-form {
@@ -295,13 +295,16 @@ input[type='search'] {
 
 .icon-picker {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
   gap: 6px;
   margin-top: 12px;
 }
 
 .icon-picker__btn {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 4px;
   align-items: center;
   justify-content: center;
   min-width: var(--touch);
@@ -314,8 +317,14 @@ input[type='search'] {
 }
 
 .icon-picker__btn .eq-icon {
-  width: 1.6rem;
-  height: 1.6rem;
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.icon-picker__label {
+  font-size: 0.85rem;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .icon-picker__btn--on {
@@ -325,7 +334,8 @@ input[type='search'] {
 }
 
 .icon-picker__none {
-  font-size: 1.3rem;
+  font-size: 2rem;
+  line-height: 2.25rem;
 }
 
 .chip--on {
@@ -531,6 +541,6 @@ input[type='search'] {
 }
 
 .tag .eq-icon {
-  width: 1rem;
-  height: 1rem;
+  width: 1.4rem;
+  height: 1.4rem;
 }

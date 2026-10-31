@@ -14,12 +14,11 @@ export default function IconPicker({ value, onChange }: Props) {
             type="button"
             role="radio"
             aria-checked={value === key}
-            aria-label={label}
-            title={label}
             className={`icon-picker__btn${value === key ? ' icon-picker__btn--on' : ''}`}
             onClick={() => onChange(key)}
           >
             {key ? <EquipmentIcon name={key} /> : <span className="icon-picker__none" aria-hidden="true">∅</span>}
+            <span className="icon-picker__label">{label}</span>
           </button>
         )
       })}
