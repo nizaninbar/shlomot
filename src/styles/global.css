@@ -544,3 +544,109 @@ input[type='search'] {
   width: 1.4rem;
   height: 1.4rem;
 }
+
+/* Calendar */
+.cal__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.cal__month {
+  flex: 1;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--turquoise-deep);
+}
+
+.cal__arrow {
+  font-size: 1.4rem;
+  padding-inline: 0;
+}
+
+.cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.cal__weekday {
+  padding-block: 4px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.cal__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 4rem;
+  min-width: 0;
+  padding: 4px 1px;
+  font: inherit;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--gold-soft);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.cal__day--out {
+  opacity: 0.4;
+}
+
+.cal__day--today .cal__num {
+  font-weight: 700;
+  color: var(--turquoise-deep);
+}
+
+.cal__day--sel {
+  background: var(--turquoise-soft);
+  border-color: var(--turquoise-deep);
+}
+
+.cal__num {
+  font-size: 0.9rem;
+}
+
+.cal__icons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1px;
+  color: var(--turquoise-deep);
+}
+
+.cal__icons .eq-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.cal__more {
+  font-size: 0.7rem;
+  line-height: 0.85rem;
+}
+
+.cal__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--pink);
+}
+
+.cal__lesson-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--turquoise-deep);
+}
+
+.cal__lesson-icons .eq-icon {
+  width: 1.4rem;
+  height: 1.4rem;
+}

@@ -13,9 +13,10 @@ Each stage ends with `npm run build` and `npx vitest run` passing, then stop for
   - Review: check picker at 360px / largest text; icon persists after clearing the cache.
   - Done: 23 icons in `equipmentIcons.tsx`, `IconPicker` (auto-fill grid, 48px). `saveEquipment` icon: omitted = keep, `''` = clear. Equipment list's "שינוי שם" button is now "עריכה" (edits name + icon).
 
-- [ ] **Stage 10: Calendar page** (needs stage 9)
+- [x] **Stage 10: Calendar page** (done; build + 32 tests pass, visual check at 360px / largest text pending review)
   Notes:
   - `listLessonsInRange(start, end)` in `repo.ts` (uses the `date` index). Pure helpers in `src/lib/calendar.ts`: `buildMonthGrid`, `groupLessonsByDay` (lesson -> workout -> deduped equipment ids).
   - `src/pages/Calendar.tsx`, route `/calendar`, header link "לוח שנה". Month grid (week starts Sunday, RTL), prev/next/today; each day shows up to 3 equipment icons then `+N`; tapping a day lists its lessons (time, workout, location, icons); tapping a lesson opens `/workout/:id`.
   - Tests: `calendar.test.ts` (month boundaries, leap Feb, grouping, icon dedupe/cap).
   - Review: grid and header fit at 360px / largest text; deleting a lesson updates the grid.
+  - Done: `listLessonsInRange` in repo, `src/lib/calendar.ts` (+ `monthRange`, `capIcons`), `src/pages/Calendar.tsx`, route `/calendar`, header link (all header links now sit after the connection badge). Today is preselected; the day list shows time, workout, location and all equipment icons.

@@ -10,7 +10,10 @@ export default function Header() {
         <span className="header__title">{t.appName}</span>
       </Link>
       <ConnectionBadge />
-      <Link to="/equipment" className="header__link">
+      <Link to="/calendar" className="header__link header__link--next">
+        {t.calendar.link}
+      </Link>
+      <Link to="/equipment" className="header__link header__link--next">
         {t.equipment.link}
       </Link>
       <Link to="/settings" className="header__link header__link--next">

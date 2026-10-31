@@ -139,6 +139,11 @@ export async function listLessons(workoutId: string): Promise<Lesson[]> {
   return lessons.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))
 }
 
+/** Lessons with start <= date <= end (YYYY-MM-DD), via the date index. */
+export async function listLessonsInRange(start: string, end: string): Promise<Lesson[]> {
+  return db.lessons.where('date').between(start, end, true, true).toArray()
+}
+
 export async function getLesson(id: string): Promise<Lesson | undefined> {
   return db.lessons.get(id)
 }

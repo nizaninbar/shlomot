@@ -3,6 +3,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Header from './components/Header'
 import SetupScreen from './components/SetupScreen'
 import { getCacheStatus, subscribeCache } from './db/cache'
+import Calendar from './pages/Calendar'
 import Equipment from './pages/Equipment'
 import Home from './pages/Home'
 import LessonForm from './pages/LessonForm'
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/workout/:id/clone" element={<WorkoutForm clone />} />
           <Route path="/workout/:id/lesson/new" element={<LessonForm />} />
           <Route path="/lesson/:lessonId/edit" element={<LessonForm />} />
+          <Route path="/calendar" element={<Calendar />} />
           <Route path="/equipment" element={<Equipment />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
