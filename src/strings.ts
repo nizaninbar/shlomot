@@ -88,6 +88,7 @@ export const t = {
       wave: 'גל',
       cushion: 'כרית',
       rope: 'חבל',
+      yogablock: 'בלוק יוגה',
     } as Record<string, string>,
     emptyTitle: 'אין ציוד עדיין',
     emptyText: 'הוסיפי ציוד כדי לסמן אותו באימונים.',

@@ -72,6 +72,7 @@ const PATHS: Record<string, ReactNode> = {
       <path d="M5 6c4 1 10 1 14 0 1 4 1 8 0 12-4-1-10-1-14 0-1-4-1-8 0-12z" />
     </>
   ),
+  yogablock: <path d="M4 9l3-3h13v8l-3 3H4zM4 9h13v8M17 9l3-3" />,
   rope: <path d="M4 20c0-8 4-8 4-12a3 3 0 0 1 6 0M20 20c0-8-4-8-4-12M6 20h-3M21 20h-3" />,
 }
 
