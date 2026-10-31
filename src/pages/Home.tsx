@@ -19,8 +19,8 @@ export default function Home() {
   const equipmentName = useMemo(() => new Map(equipment?.map((e) => [e.id, e.name])), [equipment])
   const hasFilter = query.trim() !== '' || selected.length > 0
   const visible = useMemo(
-    () => (hasFilter ? filterWorkouts(workouts ?? [], query, selected) : []),
-    [workouts, query, selected, hasFilter],
+    () => (hasFilter ? filterWorkouts(workouts ?? [], query, selected, equipmentName) : []),
+    [workouts, query, selected, hasFilter, equipmentName],
   )
 
   function toggle(id: string) {

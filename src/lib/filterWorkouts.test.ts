@@ -27,6 +27,12 @@ describe('filterWorkouts', () => {
     expect(filterWorkouts(all, 'גומייה', []).map((x) => x.id)).toEqual(['2'])
   })
 
+  it('matches equipment names', () => {
+    const names = new Map([['ball', 'Pilates Ball'], ['mat', 'מזרן']])
+    expect(filterWorkouts(all, 'pilates ball', [], names).map((x) => x.id)).toEqual(['1'])
+    expect(filterWorkouts(all, 'מזרן', [], names).map((x) => x.id)).toEqual(['1', '2'])
+  })
+
   it('treats a whitespace-only query as empty', () => {
     expect(filterWorkouts(all, '   ', [])).toHaveLength(3)
   })
